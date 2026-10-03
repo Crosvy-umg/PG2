@@ -254,65 +254,119 @@ export class TicketsService {
     }
 
     if (ticket.idTecnico !== idTecnico) {
-      throw new BadRequestException(
+      throw new ForbiddenException(
         'El ticket no está asignado a este técnico',
       );
     }
 
-    const estadoAnterior =
-      ticket.estado?.nombre ??
-      `ID ${ticket.idEstado}`;
+    const estadoActual = ticket.idEstado;
+    const estadoNuevo =
+      updateEstadoTicketDto.idEstado;
 
-    try {
-      if (updateEstadoTicketDto.idEstado === 6) {
-        await this.ticketRepository.update(
-          idTicket,
-          {
-            idEstado:
-              updateEstadoTicketDto.idEstado,
-            fechaCierre: new Date(),
-          },
-        );
-      } else {
-        await this.ticketRepository.update(
-          idTicket,
-          {
-            idEstado:
-              updateEstadoTicketDto.idEstado,
-          },
-        );
-      }
-
-      const ticketActualizado =
-        await this.ticketRepository.findOne({
-          where: {
-            idTicket,
-          },
-        });
-
-      if (!ticketActualizado) {
-        throw new NotFoundException(
-          'No fue posible recuperar el ticket actualizado',
-        );
-      }
-
-      const estadoNuevo =
-        ticketActualizado.estado?.nombre ??
-        `ID ${updateEstadoTicketDto.idEstado}`;
-
-      await this.bitacoraService.registrar(
-        idTicket,
-        idTecnico,
-        'Estado actualizado',
-        `El estado cambió de ${estadoAnterior} a ${estadoNuevo}.`,
-      );
-
-      return ticketActualizado;
-    } catch {
+    if (
+      estadoNuevo < 1 ||
+      estadoNuevo > 6
+    ) {
       throw new BadRequestException(
-        'No fue posible actualizar el estado del ticket.',
+        'El estado indicado no es válido',
       );
     }
+
+    if (estadoActual === estadoNuevo) {
+      throw new BadRequestException(
+        'El ticket ya se encuentra en ese estado',
+      );
+    }
+
+    if (estadoActual === 6) {
+      throw new BadRequestException(
+        'Un ticket cerrado ya no puede cambiar de estado',
+      );
+    }
+
+    const transicionesPermitidas: Record<
+      number,
+      number[]
+    > = {
+      3: [4, 5],
+      4: [3, 5],
+      5: [6],
+    };
+
+    const estadosPermitidos =
+      transicionesPermitidas[estadoActual] ??
+      [];
+
+    if (
+      !estadosPermitidos.includes(
+        estadoNuevo,
+      )
+    ) {
+      throw new BadRequestException(
+        'La transición de estado solicitada no está permitida',
+      );
+    }
+
+    const nombresEstados: Record<
+      number,
+      string
+    > = {
+      1: 'Nuevo',
+      2: 'En revisión',
+      3: 'En atención',
+      4: 'Pendiente',
+      5: 'Resuelto',
+      6: 'Cerrado',
+    };
+
+    const nombreEstadoAnterior =
+      ticket.estado?.nombre ??
+      nombresEstados[estadoActual] ??
+      `ID ${estadoActual}`;
+
+    if (estadoNuevo === 6) {
+      await this.ticketRepository.update(
+        idTicket,
+        {
+          idEstado: estadoNuevo,
+          fechaCierre: new Date(),
+        },
+      );
+    } else {
+      await this.ticketRepository.update(
+        idTicket,
+        {
+          idEstado: estadoNuevo,
+        },
+      );
+    }
+
+    const ticketActualizado =
+      await this.ticketRepository.findOne({
+        where: {
+          idTicket,
+        },
+      });
+
+    if (!ticketActualizado) {
+      throw new NotFoundException(
+        'No fue posible recuperar el ticket actualizado',
+      );
+    }
+
+    const nombreEstadoNuevo =
+      ticketActualizado.estado?.nombre ??
+      nombresEstados[estadoNuevo] ??
+      `ID ${estadoNuevo}`;
+
+    await this.bitacoraService.registrar(
+      idTicket,
+      idTecnico,
+      'Estado actualizado',
+      `El estado cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
+    );
+
+    return ticketActualizado;
   }
 
   async findBitacora(
