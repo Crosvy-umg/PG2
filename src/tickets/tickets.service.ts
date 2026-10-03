@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -99,6 +100,58 @@ export class TicketsService {
         idTicket: 'DESC',
       },
     });
+  }
+
+  async findOne(
+    idTicket: number,
+    idUsuario: number,
+    rol: string,
+  ) {
+    const ticket =
+      await this.ticketRepository.findOne({
+        where: {
+          idTicket,
+        },
+      });
+
+    if (!ticket) {
+      throw new NotFoundException(
+        'El ticket no existe',
+      );
+    }
+
+    if (
+      rol === 'Solicitante' &&
+      ticket.idSolicitante !== idUsuario
+    ) {
+      throw new ForbiddenException(
+        'No tiene permisos para consultar este ticket',
+      );
+    }
+
+    if (
+      rol === 'Técnico' &&
+      ticket.idTecnico !== idUsuario
+    ) {
+      throw new ForbiddenException(
+        'El ticket no está asignado a este técnico',
+      );
+    }
+
+    if (
+      ![
+        'Solicitante',
+        'Técnico',
+        'Supervisor',
+        'Administrador',
+      ].includes(rol)
+    ) {
+      throw new ForbiddenException(
+        'No tiene permisos para consultar este ticket',
+      );
+    }
+
+    return ticket;
   }
 
   async gestionarAtencion(

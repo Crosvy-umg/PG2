@@ -18,14 +18,17 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto) {
-    const usuarioExistente = await this.userRepository.findOne({
-      where: {
-        usuario: createUserDto.usuario,
-      },
-    });
+    const usuarioExistente =
+      await this.userRepository.findOne({
+        where: {
+          usuario: createUserDto.usuario,
+        },
+      });
 
     if (usuarioExistente) {
-      throw new BadRequestException('El usuario ya existe');
+      throw new BadRequestException(
+        'El usuario ya existe',
+      );
     }
 
     const contraseniaCifrada = await bcrypt.hash(
@@ -33,21 +36,25 @@ export class UsersService {
       10,
     );
 
-    const nuevoUsuario = this.userRepository.create({
-      usuario: createUserDto.usuario,
-      contrasenia: contraseniaCifrada,
-      idRol: createUserDto.idRol,
-    });
+    const nuevoUsuario =
+      this.userRepository.create({
+        usuario: createUserDto.usuario,
+        contrasenia: contraseniaCifrada,
+        idRol: createUserDto.idRol,
+      });
 
     const usuarioGuardado =
-      await this.userRepository.save(nuevoUsuario);
+      await this.userRepository.save(
+        nuevoUsuario,
+      );
 
     return {
       id: usuarioGuardado.id,
       usuario: usuarioGuardado.usuario,
       activo: usuarioGuardado.activo,
       idRol: usuarioGuardado.idRol,
-      fechaCreacion: usuarioGuardado.fechaCreacion,
+      fechaCreacion:
+        usuarioGuardado.fechaCreacion,
     };
   }
 
@@ -59,6 +66,27 @@ export class UsersService {
         activo: true,
         idRol: true,
         fechaCreacion: true,
+      },
+      order: {
+        usuario: 'ASC',
+      },
+    });
+  }
+
+  async findTecnicos() {
+    return this.userRepository.find({
+      where: {
+        idRol: 2,
+        activo: true,
+      },
+      select: {
+        id: true,
+        usuario: true,
+        activo: true,
+        idRol: true,
+      },
+      order: {
+        usuario: 'ASC',
       },
     });
   }

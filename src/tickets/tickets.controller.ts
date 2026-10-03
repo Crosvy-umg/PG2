@@ -77,6 +77,25 @@ export class TicketsController {
     );
   }
 
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    'Solicitante',
+    'Técnico',
+    'Supervisor',
+    'Administrador',
+  )
+  findOne(
+    @Param('id', ParseIntPipe) idTicket: number,
+    @Req() request: any,
+  ) {
+    return this.ticketsService.findOne(
+      idTicket,
+      request.user.sub,
+      request.user.rol,
+    );
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
