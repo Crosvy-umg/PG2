@@ -54,7 +54,8 @@ export class TicketsService {
         urgencia: createTicketDto.urgencia,
         idSolicitante,
         idTecnico: null,
-        idCategoria: createTicketDto.idCategoria,
+        idCategoria:
+          createTicketDto.idCategoria,
         idPrioridad: null,
         idEstado: 1,
         fechaCierre: null,
@@ -156,7 +157,8 @@ export class TicketsService {
 
   async gestionarAtencion(
     idTicket: number,
-    updateAtencionTicketDto: UpdateAtencionTicketDto,
+    updateAtencionTicketDto:
+      UpdateAtencionTicketDto,
     idUsuario: number,
   ) {
     const ticket =
@@ -178,8 +180,10 @@ export class TicketsService {
         {
           idTecnico:
             updateAtencionTicketDto.idTecnico,
+
           idPrioridad:
             updateAtencionTicketDto.idPrioridad,
+
           idEstado:
             updateAtencionTicketDto.idEstado,
         },
@@ -203,13 +207,16 @@ export class TicketsService {
         idUsuario,
         'Atención actualizada',
         `Técnico: ${
-          ticketActualizado.tecnico?.usuario ??
+          ticketActualizado.tecnico
+            ?.usuario ??
           `ID ${updateAtencionTicketDto.idTecnico}`
         }. Prioridad: ${
-          ticketActualizado.prioridad?.nombre ??
+          ticketActualizado.prioridad
+            ?.nombre ??
           `ID ${updateAtencionTicketDto.idPrioridad}`
         }. Estado: ${
-          ticketActualizado.estado?.nombre ??
+          ticketActualizado.estado
+            ?.nombre ??
           `ID ${updateAtencionTicketDto.idEstado}`
         }.`,
       );
@@ -238,7 +245,8 @@ export class TicketsService {
   async actualizarEstado(
     idTicket: number,
     idTecnico: number,
-    updateEstadoTicketDto: UpdateEstadoTicketDto,
+    updateEstadoTicketDto:
+      UpdateEstadoTicketDto,
   ) {
     const ticket =
       await this.ticketRepository.findOne({
@@ -259,7 +267,9 @@ export class TicketsService {
       );
     }
 
-    const estadoActual = ticket.idEstado;
+    const estadoActual =
+      ticket.idEstado;
+
     const estadoNuevo =
       updateEstadoTicketDto.idEstado;
 
@@ -294,8 +304,9 @@ export class TicketsService {
     };
 
     const estadosPermitidos =
-      transicionesPermitidas[estadoActual] ??
-      [];
+      transicionesPermitidas[
+        estadoActual
+      ] ?? [];
 
     if (
       !estadosPermitidos.includes(
@@ -371,19 +382,14 @@ export class TicketsService {
 
   async findBitacora(
     idTicket: number,
+    idUsuario: number,
+    rol: string,
   ) {
-    const ticket =
-      await this.ticketRepository.findOne({
-        where: {
-          idTicket,
-        },
-      });
-
-    if (!ticket) {
-      throw new NotFoundException(
-        'El ticket no existe',
-      );
-    }
+    await this.findOne(
+      idTicket,
+      idUsuario,
+      rol,
+    );
 
     return this.bitacoraService.findByTicket(
       idTicket,

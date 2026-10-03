@@ -65,15 +65,22 @@ export class TicketsController {
   @Get(':id/bitacora')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
+    'Solicitante',
     'Técnico',
     'Supervisor',
     'Administrador',
   )
   findBitacora(
-    @Param('id', ParseIntPipe) idTicket: number,
+    @Param('id', ParseIntPipe)
+    idTicket: number,
+
+    @Req()
+    request: any,
   ) {
     return this.ticketsService.findBitacora(
       idTicket,
+      request.user.sub,
+      request.user.rol,
     );
   }
 
@@ -86,8 +93,11 @@ export class TicketsController {
     'Administrador',
   )
   findOne(
-    @Param('id', ParseIntPipe) idTicket: number,
-    @Req() request: any,
+    @Param('id', ParseIntPipe)
+    idTicket: number,
+
+    @Req()
+    request: any,
   ) {
     return this.ticketsService.findOne(
       idTicket,
@@ -115,9 +125,15 @@ export class TicketsController {
     'Administrador',
   )
   gestionarAtencion(
-    @Param('id', ParseIntPipe) idTicket: number,
-    @Body() updateAtencionTicketDto: UpdateAtencionTicketDto,
-    @Req() request: any,
+    @Param('id', ParseIntPipe)
+    idTicket: number,
+
+    @Body()
+    updateAtencionTicketDto:
+      UpdateAtencionTicketDto,
+
+    @Req()
+    request: any,
   ) {
     return this.ticketsService.gestionarAtencion(
       idTicket,
@@ -130,9 +146,15 @@ export class TicketsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Técnico')
   actualizarEstado(
-    @Param('id', ParseIntPipe) idTicket: number,
-    @Body() updateEstadoTicketDto: UpdateEstadoTicketDto,
-    @Req() request: any,
+    @Param('id', ParseIntPipe)
+    idTicket: number,
+
+    @Body()
+    updateEstadoTicketDto:
+      UpdateEstadoTicketDto,
+
+    @Req()
+    request: any,
   ) {
     return this.ticketsService.actualizarEstado(
       idTicket,

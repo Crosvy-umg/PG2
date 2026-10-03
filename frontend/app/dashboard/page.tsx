@@ -95,6 +95,22 @@ export default function DashboardPage() {
     return null;
   }
 
+  const esSolicitante =
+    perfil.idRol === 1 ||
+    perfil.rol?.trim() === 'Solicitante';
+
+  const esTecnico =
+    perfil.idRol === 2 ||
+    perfil.rol?.trim() === 'Técnico';
+
+  const esSupervisor =
+    perfil.idRol === 6 ||
+    perfil.rol?.trim() === 'Supervisor';
+
+  const esAdministrador =
+    perfil.idRol === 7 ||
+    perfil.rol?.trim() === 'Administrador';
+
   return (
     <main className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
@@ -178,16 +194,60 @@ export default function DashboardPage() {
             Opciones
           </h3>
 
-          {perfil.rol === 'Técnico' && (
-            <button
-              onClick={() =>
-                router.push('/tickets/asignados')
-              }
-              className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
-            >
-              Ver tickets asignados
-            </button>
-          )}
+          <div className="flex flex-wrap gap-4">
+            {esSolicitante && (
+              <>
+                <button
+                  onClick={() =>
+                    router.push(
+                      '/tickets/nuevo',
+                    )
+                  }
+                  className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Crear nuevo ticket
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      '/tickets/mis-tickets',
+                    )
+                  }
+                  className="rounded-xl border border-slate-300 bg-white px-6 py-4 font-semibold text-slate-800 transition hover:bg-slate-50"
+                >
+                  Mis tickets
+                </button>
+              </>
+            )}
+
+            {esTecnico && (
+              <button
+                onClick={() =>
+                  router.push(
+                    '/tickets/asignados',
+                  )
+                }
+                className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
+              >
+                Ver tickets asignados
+              </button>
+            )}
+
+            {(esAdministrador ||
+              esSupervisor) && (
+              <button
+                onClick={() =>
+                  router.push(
+                    '/tickets/gestion',
+                  )
+                }
+                className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
+              >
+                Gestionar tickets
+              </button>
+            )}
+          </div>
         </div>
       </section>
     </main>
