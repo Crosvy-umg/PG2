@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
 @Injectable()
 export class UsersService {
@@ -31,10 +33,11 @@ export class UsersService {
       );
     }
 
-    const contraseniaCifrada = await bcrypt.hash(
-      createUserDto.contrasenia,
-      10,
-    );
+    const contraseniaCifrada =
+      await bcrypt.hash(
+        createUserDto.contrasenia,
+        10,
+      );
 
     const nuevoUsuario =
       this.userRepository.create({
@@ -108,5 +111,64 @@ export class UsersService {
         rol: true,
       },
     });
+  }
+
+  async actualizarEstado(
+    idUsuario: number,
+    updateUserStatusDto: UpdateUserStatusDto,
+    idAdministrador: number,
+  ) {
+    const usuario =
+      await this.userRepository.findOne({
+        where: {
+          id: idUsuario,
+        },
+      });
+
+    if (!usuario) {
+      throw new NotFoundException(
+        'El usuario no existe',
+      );
+    }
+
+    if (
+      idUsuario === idAdministrador &&
+      updateUserStatusDto.activo === false
+    ) {
+      throw new BadRequestException(
+        'No puede desactivar su propia cuenta',
+      );
+    }
+
+    if (
+      usuario.activo ===
+      updateUserStatusDto.activo
+    ) {
+      throw new BadRequestException(
+        updateUserStatusDto.activo
+          ? 'El usuario ya se encuentra activo'
+          : 'El usuario ya se encuentra inactivo',
+      );
+    }
+
+    usuario.activo =
+      updateUserStatusDto.activo;
+
+    const usuarioActualizado =
+      await this.userRepository.save(
+        usuario,
+      );
+
+    return {
+      id: usuarioActualizado.id,
+      usuario:
+        usuarioActualizado.usuario,
+      activo:
+        usuarioActualizado.activo,
+      idRol:
+        usuarioActualizado.idRol,
+      fechaCreacion:
+        usuarioActualizado.fechaCreacion,
+    };
   }
 }

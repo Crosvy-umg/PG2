@@ -2,12 +2,17 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseIntPipe,
+  Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -45,5 +50,25 @@ export class UsersController {
   @Roles('Administrador')
   findAll() {
     return this.usersService.findAll();
+  }
+
+  @Patch(':id/estado')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Administrador')
+  actualizarEstado(
+    @Param('id', ParseIntPipe)
+    idUsuario: number,
+
+    @Body()
+    updateUserStatusDto: UpdateUserStatusDto,
+
+    @Req()
+    request: any,
+  ) {
+    return this.usersService.actualizarEstado(
+      idUsuario,
+      updateUserStatusDto,
+      request.user.sub,
+    );
   }
 }

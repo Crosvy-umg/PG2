@@ -58,6 +58,9 @@ export default function UsuariosPage() {
   const [guardando, setGuardando] =
     useState(false);
 
+  const [cambiandoEstado, setCambiandoEstado] =
+    useState<number | null>(null);
+
   const [mensaje, setMensaje] =
     useState('');
 
@@ -307,6 +310,128 @@ export default function UsuariosPage() {
     }
   }
 
+  async function cambiarEstadoUsuario(
+    usuario: Usuario,
+  ) {
+    setMensaje('');
+    setError('');
+
+    if (
+      perfil &&
+      usuario.id === perfil.sub &&
+      usuario.activo
+    ) {
+      setError(
+        'No puede desactivar su propia cuenta.',
+      );
+      return;
+    }
+
+    const nuevoEstado =
+      !usuario.activo;
+
+    const accion =
+      nuevoEstado
+        ? 'activar'
+        : 'desactivar';
+
+    const confirmado =
+      window.confirm(
+        `¿Está seguro de ${accion} al usuario ${usuario.usuario}?`,
+      );
+
+    if (!confirmado) {
+      return;
+    }
+
+    const token =
+      localStorage.getItem(
+        'access_token',
+      );
+
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    try {
+      setCambiandoEstado(
+        usuario.id,
+      );
+
+      const respuesta =
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/usuarios/${usuario.id}/estado`,
+          {
+            method: 'PATCH',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              activo: nuevoEstado,
+            }),
+          },
+        );
+
+      if (respuesta.status === 401) {
+        localStorage.removeItem(
+          'access_token',
+        );
+
+        router.replace('/');
+        return;
+      }
+
+      if (respuesta.status === 403) {
+        setError(
+          'No tiene permisos para cambiar el estado de usuarios.',
+        );
+        return;
+      }
+
+      if (!respuesta.ok) {
+        const dataError =
+          await respuesta.json();
+
+        const mensajeError =
+          Array.isArray(
+            dataError.message,
+          )
+            ? dataError.message.join(
+                ', ',
+              )
+            : dataError.message;
+
+        setError(
+          mensajeError ||
+            'No fue posible cambiar el estado del usuario.',
+        );
+
+        return;
+      }
+
+      setMensaje(
+        nuevoEstado
+          ? `El usuario ${usuario.usuario} fue activado correctamente.`
+          : `El usuario ${usuario.usuario} fue desactivado correctamente.`,
+      );
+
+      await cargarDatos();
+    } catch {
+      setError(
+        'No fue posible conectar con el servidor.',
+      );
+    } finally {
+      setCambiandoEstado(null);
+    }
+  }
+
   function nombreRol(
     usuario: Usuario,
   ) {
@@ -387,16 +512,29 @@ export default function UsuariosPage() {
           </h2>
 
           <p className="mt-1 text-slate-500">
-            Cree usuarios y consulte las
+            Cree usuarios y administre las
             cuentas registradas en el
             sistema.
           </p>
         </div>
 
+        {mensaje && (
+          <div className="mb-5 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+            {mensaje}
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
           <div>
             <form
               onSubmit={crearUsuario}
+              autoComplete="off"
               className="rounded-xl bg-white p-6 shadow-sm"
             >
               <h3 className="text-lg font-bold text-slate-900">
@@ -415,12 +553,15 @@ export default function UsuariosPage() {
 
                 <input
                   type="text"
+                  name="nuevo-usuario"
+                  autoComplete="off"
                   value={
                     formulario.usuario
                   }
                   onChange={(event) =>
                     setFormulario({
                       ...formulario,
+
                       usuario:
                         event.target
                           .value,
@@ -438,12 +579,15 @@ export default function UsuariosPage() {
 
                 <input
                   type="password"
+                  name="nueva-contrasenia"
+                  autoComplete="new-password"
                   value={
                     formulario.contrasenia
                   }
                   onChange={(event) =>
                     setFormulario({
                       ...formulario,
+
                       contrasenia:
                         event.target
                           .value,
@@ -502,33 +646,19 @@ export default function UsuariosPage() {
                   ? 'Creando...'
                   : 'Crear usuario'}
               </button>
-
-              {mensaje && (
-                <div className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-                  {mensaje}
-                </div>
-              )}
-
-              {error && (
-                <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {error}
-                </div>
-              )}
             </form>
           </div>
 
           <div>
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">
-                  Usuarios registrados
-                </h3>
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-slate-900">
+                Usuarios registrados
+              </h3>
 
-                <p className="text-sm text-slate-500">
-                  Total:{' '}
-                  {usuarios.length}
-                </p>
-              </div>
+              <p className="text-sm text-slate-500">
+                Total:{' '}
+                {usuarios.length}
+              </p>
             </div>
 
             {usuarios.length === 0 ? (
@@ -563,55 +693,105 @@ export default function UsuariosPage() {
                         <th className="whitespace-nowrap px-5 py-4 text-left text-sm font-semibold text-slate-700">
                           Fecha de creación
                         </th>
+
+                        <th className="px-5 py-4 text-left text-sm font-semibold text-slate-700">
+                          Acciones
+                        </th>
                       </tr>
                     </thead>
 
                     <tbody>
                       {usuarios.map(
-                        (usuario) => (
-                          <tr
-                            key={
-                              usuario.id
-                            }
-                            className="border-b border-slate-100 last:border-0"
-                          >
-                            <td className="px-5 py-4 font-medium text-slate-700">
-                              {
+                        (usuario) => {
+                          const esCuentaActual =
+                            perfil?.sub ===
+                            usuario.id;
+
+                          return (
+                            <tr
+                              key={
                                 usuario.id
                               }
-                            </td>
+                              className="border-b border-slate-100 last:border-0"
+                            >
+                              <td className="px-5 py-4 font-medium text-slate-700">
+                                {
+                                  usuario.id
+                                }
+                              </td>
 
-                            <td className="px-5 py-4 font-semibold text-slate-900">
-                              {
-                                usuario.usuario
-                              }
-                            </td>
+                              <td className="px-5 py-4 font-semibold text-slate-900">
+                                {
+                                  usuario.usuario
+                                }
 
-                            <td className="px-5 py-4 text-slate-700">
-                              {nombreRol(
-                                usuario,
-                              )}
-                            </td>
+                                {esCuentaActual && (
+                                  <span className="ml-2 text-xs font-normal text-slate-400">
+                                    (usted)
+                                  </span>
+                                )}
+                              </td>
 
-                            <td className="px-5 py-4">
-                              {usuario.activo ? (
-                                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
-                                  Activo
-                                </span>
-                              ) : (
-                                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-                                  Inactivo
-                                </span>
-                              )}
-                            </td>
+                              <td className="px-5 py-4 text-slate-700">
+                                {nombreRol(
+                                  usuario,
+                                )}
+                              </td>
 
-                            <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
-                              {formatearFecha(
-                                usuario.fechaCreacion,
-                              )}
-                            </td>
-                          </tr>
-                        ),
+                              <td className="px-5 py-4">
+                                {usuario.activo ? (
+                                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                                    Activo
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                                    Inactivo
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                                {formatearFecha(
+                                  usuario.fechaCreacion,
+                                )}
+                              </td>
+
+                              <td className="px-5 py-4">
+                                {esCuentaActual &&
+                                usuario.activo ? (
+                                  <span className="text-xs text-slate-400">
+                                    Cuenta actual
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      cambiandoEstado ===
+                                      usuario.id
+                                    }
+                                    onClick={() =>
+                                      cambiarEstadoUsuario(
+                                        usuario,
+                                      )
+                                    }
+                                    className={
+                                      usuario.activo
+                                        ? 'rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50'
+                                        : 'rounded-lg border border-green-200 bg-white px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50'
+                                    }
+                                  >
+                                    {cambiandoEstado ===
+                                    usuario.id
+                                      ? 'Procesando...'
+                                      : usuario.activo
+                                        ? 'Desactivar'
+                                        : 'Activar'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        },
                       )}
                     </tbody>
                   </table>
