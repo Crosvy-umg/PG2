@@ -12,6 +12,31 @@ interface Perfil {
   exp?: number;
 }
 
+interface Ticket {
+  idTicket: number;
+  codigo: string;
+  titulo: string;
+  idEstado: number;
+
+  estado?: {
+    idEstado: number;
+    nombre: string;
+  };
+
+  idTecnico: number | null;
+}
+
+interface Indicadores {
+  total: number;
+  nuevos: number;
+  enRevision: number;
+  enAtencion: number;
+  pendientes: number;
+  resueltos: number;
+  cerrados: number;
+  sinAsignar: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -21,8 +46,20 @@ export default function DashboardPage() {
   const [cargando, setCargando] =
     useState(true);
 
+  const [indicadores, setIndicadores] =
+    useState<Indicadores>({
+      total: 0,
+      nuevos: 0,
+      enRevision: 0,
+      enAtencion: 0,
+      pendientes: 0,
+      resueltos: 0,
+      cerrados: 0,
+      sinAsignar: 0,
+    });
+
   useEffect(() => {
-    async function cargarPerfil() {
+    async function cargarDashboard() {
       const token =
         localStorage.getItem(
           'access_token',
@@ -34,17 +71,18 @@ export default function DashboardPage() {
       }
 
       try {
-        const respuesta = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
-          {
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
+        const respuestaPerfil =
+          await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             },
-          },
-        );
+          );
 
-        if (!respuesta.ok) {
+        if (!respuestaPerfil.ok) {
           localStorage.removeItem(
             'access_token',
           );
@@ -54,7 +92,7 @@ export default function DashboardPage() {
         }
 
         const data =
-          await respuesta.json();
+          await respuestaPerfil.json();
 
         const perfilNormalizado: Perfil =
           data.usuario &&
@@ -63,9 +101,97 @@ export default function DashboardPage() {
             ? data.usuario
             : data;
 
-        setPerfil(
-          perfilNormalizado,
-        );
+        setPerfil(perfilNormalizado);
+
+        const esSupervisor =
+          perfilNormalizado.idRol === 6 ||
+          perfilNormalizado.rol?.trim() ===
+            'Supervisor';
+
+        const esAdministrador =
+          perfilNormalizado.idRol === 7 ||
+          perfilNormalizado.rol?.trim() ===
+            'Administrador';
+
+        if (
+          esSupervisor ||
+          esAdministrador
+        ) {
+          const respuestaTickets =
+            await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/tickets`,
+              {
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              },
+            );
+
+          if (
+            respuestaTickets.status ===
+            401
+          ) {
+            localStorage.removeItem(
+              'access_token',
+            );
+
+            router.replace('/');
+            return;
+          }
+
+          if (respuestaTickets.ok) {
+            const tickets: Ticket[] =
+              await respuestaTickets.json();
+
+            setIndicadores({
+              total: tickets.length,
+
+              nuevos:
+                tickets.filter(
+                  (ticket) =>
+                    ticket.idEstado === 1,
+                ).length,
+
+              enRevision:
+                tickets.filter(
+                  (ticket) =>
+                    ticket.idEstado === 2,
+                ).length,
+
+              enAtencion:
+                tickets.filter(
+                  (ticket) =>
+                    ticket.idEstado === 3,
+                ).length,
+
+              pendientes:
+                tickets.filter(
+                  (ticket) =>
+                    ticket.idEstado === 4,
+                ).length,
+
+              resueltos:
+                tickets.filter(
+                  (ticket) =>
+                    ticket.idEstado === 5,
+                ).length,
+
+              cerrados:
+                tickets.filter(
+                  (ticket) =>
+                    ticket.idEstado === 6,
+                ).length,
+
+              sinAsignar:
+                tickets.filter(
+                  (ticket) =>
+                    ticket.idTecnico ===
+                    null,
+                ).length,
+            });
+          }
+        }
       } catch {
         localStorage.removeItem(
           'access_token',
@@ -77,7 +203,7 @@ export default function DashboardPage() {
       }
     }
 
-    cargarPerfil();
+    cargarDashboard();
   }, [router]);
 
   function cerrarSesion() {
@@ -121,6 +247,10 @@ export default function DashboardPage() {
     perfil.idRol === 7 ||
     perfil.rol?.trim() ===
       'Administrador';
+
+  const esAdministrativo =
+    esAdministrador ||
+    esSupervisor;
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -200,7 +330,104 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="mt-8">
+        {esAdministrativo && (
+          <div className="mt-10">
+            <div className="mb-5">
+              <h3 className="text-xl font-bold text-slate-900">
+                Resumen de tickets
+              </h3>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Estado general de los
+                incidentes registrados.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">
+                  Total de tickets
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {indicadores.total}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">
+                  Nuevos
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {indicadores.nuevos}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">
+                  En revisión
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {indicadores.enRevision}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">
+                  En atención
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {indicadores.enAtencion}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">
+                  Pendientes
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {indicadores.pendientes}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">
+                  Resueltos
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {indicadores.resueltos}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">
+                  Cerrados
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {indicadores.cerrados}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-slate-500">
+                  Sin asignar
+                </p>
+
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {indicadores.sinAsignar}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-10">
           <h3 className="mb-4 text-lg font-bold text-slate-900">
             Opciones
           </h3>
@@ -245,8 +472,7 @@ export default function DashboardPage() {
               </button>
             )}
 
-            {(esAdministrador ||
-              esSupervisor) && (
+            {esAdministrativo && (
               <>
                 <button
                   onClick={() =>
