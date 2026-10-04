@@ -24,7 +24,9 @@ export default function DashboardPage() {
   useEffect(() => {
     async function cargarPerfil() {
       const token =
-        localStorage.getItem('access_token');
+        localStorage.getItem(
+          'access_token',
+        );
 
       if (!token) {
         router.replace('/');
@@ -36,7 +38,8 @@ export default function DashboardPage() {
           `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization:
+                `Bearer ${token}`,
             },
           },
         );
@@ -50,15 +53,19 @@ export default function DashboardPage() {
           return;
         }
 
-        const data = await respuesta.json();
+        const data =
+          await respuesta.json();
 
         const perfilNormalizado: Perfil =
           data.usuario &&
-          typeof data.usuario === 'object'
+          typeof data.usuario ===
+            'object'
             ? data.usuario
             : data;
 
-        setPerfil(perfilNormalizado);
+        setPerfil(
+          perfilNormalizado,
+        );
       } catch {
         localStorage.removeItem(
           'access_token',
@@ -97,19 +104,23 @@ export default function DashboardPage() {
 
   const esSolicitante =
     perfil.idRol === 1 ||
-    perfil.rol?.trim() === 'Solicitante';
+    perfil.rol?.trim() ===
+      'Solicitante';
 
   const esTecnico =
     perfil.idRol === 2 ||
-    perfil.rol?.trim() === 'Técnico';
+    perfil.rol?.trim() ===
+      'Técnico';
 
   const esSupervisor =
     perfil.idRol === 6 ||
-    perfil.rol?.trim() === 'Supervisor';
+    perfil.rol?.trim() ===
+      'Supervisor';
 
   const esAdministrador =
     perfil.idRol === 7 ||
-    perfil.rol?.trim() === 'Administrador';
+    perfil.rol?.trim() ===
+      'Administrador';
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -236,16 +247,29 @@ export default function DashboardPage() {
 
             {(esAdministrador ||
               esSupervisor) && (
-              <button
-                onClick={() =>
-                  router.push(
-                    '/tickets/gestion',
-                  )
-                }
-                className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
-              >
-                Gestionar tickets
-              </button>
+              <>
+                <button
+                  onClick={() =>
+                    router.push(
+                      '/tickets/gestion',
+                    )
+                  }
+                  className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Gestionar tickets
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      '/tickets/todos',
+                    )
+                  }
+                  className="rounded-xl border border-slate-300 bg-white px-6 py-4 font-semibold text-slate-800 transition hover:bg-slate-50"
+                >
+                  Todos los tickets
+                </button>
+              </>
             )}
           </div>
         </div>
