@@ -9,6 +9,8 @@ import {
 
 import { useRouter } from 'next/navigation';
 
+import AppShell from '../../../components/AppShell';
+
 interface Perfil {
   sub: number;
   usuario: string;
@@ -371,277 +373,302 @@ export default function TodosTicketsPage() {
     );
   }
 
+  function claseEstado(
+    idEstado: number,
+  ) {
+    switch (idEstado) {
+      case 1:
+        return 'bg-blue-50 text-[#1F4697]';
+
+      case 2:
+        return 'bg-violet-50 text-violet-700';
+
+      case 3:
+        return 'bg-orange-50 text-orange-700';
+
+      case 4:
+        return 'bg-amber-50 text-amber-700';
+
+      case 5:
+        return 'bg-green-50 text-green-700';
+
+      case 6:
+        return 'bg-slate-100 text-slate-700';
+
+      default:
+        return 'bg-slate-100 text-slate-700';
+    }
+  }
+
   if (cargando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-slate-600">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F6F8]">
+        <p className="text-[#61605E]">
           Cargando...
         </p>
       </main>
     );
   }
 
+  if (!perfil) {
+    return null;
+  }
+
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              Gestión de Incidentes TI
-            </h1>
-
-            <p className="text-sm text-slate-500">
-              Todos los tickets
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {perfil && (
-              <div className="text-right">
-                <p className="font-medium text-slate-900">
-                  {perfil.usuario}
-                </p>
-
-                <p className="text-sm text-slate-500">
-                  {perfil.rol}
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={() =>
-                router.push(
-                  '/dashboard',
-                )
-              }
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Volver
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Todos los tickets
-          </h2>
-
-          <p className="mt-1 text-slate-500">
-            Consulte y filtre los
-            incidentes registrados en el
-            sistema.
+    <AppShell perfil={perfil}>
+      <section className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
+        <div className="mb-8">
+          <p className="mb-1 text-sm font-semibold text-[#EC2328]">
+            Gestión de tickets
           </p>
-        </div>
 
-        <div className="mb-6 grid gap-4 rounded-xl bg-white p-5 shadow-sm md:grid-cols-2 lg:grid-cols-5">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Buscar
-            </label>
+          <h1 className="text-3xl font-bold text-[#1F4697]">
+            Todos los tickets
+          </h1>
 
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(event) =>
-                setBusqueda(
-                  event.target.value,
-                )
-              }
-              placeholder="Código, título o usuario"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Estado
-            </label>
-
-            <select
-              value={filtroEstado}
-              onChange={(event) =>
-                setFiltroEstado(
-                  event.target.value,
-                )
-              }
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-            >
-              <option value="">
-                Todos
-              </option>
-
-              {estados.map(
-                (estado) => (
-                  <option
-                    key={
-                      estado.idEstado
-                    }
-                    value={
-                      estado.idEstado
-                    }
-                  >
-                    {estado.nombre}
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Técnico
-            </label>
-
-            <select
-              value={filtroTecnico}
-              onChange={(event) =>
-                setFiltroTecnico(
-                  event.target.value,
-                )
-              }
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-            >
-              <option value="">
-                Todos
-              </option>
-
-              {tecnicos.map(
-                (tecnico) => (
-                  <option
-                    key={tecnico.id}
-                    value={tecnico.id}
-                  >
-                    {tecnico.usuario}
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Prioridad
-            </label>
-
-            <select
-              value={
-                filtroPrioridad
-              }
-              onChange={(event) =>
-                setFiltroPrioridad(
-                  event.target.value,
-                )
-              }
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-            >
-              <option value="">
-                Todas
-              </option>
-
-              {prioridades.map(
-                (prioridad) => (
-                  <option
-                    key={
-                      prioridad.idPrioridad
-                    }
-                    value={
-                      prioridad.idPrioridad
-                    }
-                  >
-                    {
-                      prioridad.nombre
-                    }
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={limpiarFiltros}
-              className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Limpiar filtros
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-600">
-            Mostrando{' '}
-            <strong>
-              {
-                ticketsFiltrados.length
-              }
-            </strong>{' '}
-            de{' '}
-            <strong>
-              {tickets.length}
-            </strong>{' '}
-            tickets
+          <p className="mt-2 text-[#61605E]">
+            Consulte y filtre los incidentes
+            registrados en el sistema.
           </p>
         </div>
 
         {mensaje && (
-          <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {mensaje}
           </div>
         )}
 
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-[#1F4697]">
+                Filtros de búsqueda
+              </h2>
+
+              <p className="mt-1 text-sm text-[#61605E]">
+                Utilice uno o varios filtros
+                para localizar incidentes.
+              </p>
+            </div>
+
+            <div className="hidden h-1 w-12 rounded-full bg-[#EC2328] sm:block" />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Buscar
+              </label>
+
+              <input
+                type="text"
+                value={busqueda}
+                onChange={(event) =>
+                  setBusqueda(
+                    event.target.value,
+                  )
+                }
+                placeholder="Código, título o usuario"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Estado
+              </label>
+
+              <select
+                value={filtroEstado}
+                onChange={(event) =>
+                  setFiltroEstado(
+                    event.target.value,
+                  )
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#1F4697]"
+              >
+                <option value="">
+                  Todos
+                </option>
+
+                {estados.map(
+                  (estado) => (
+                    <option
+                      key={
+                        estado.idEstado
+                      }
+                      value={
+                        estado.idEstado
+                      }
+                    >
+                      {estado.nombre}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Técnico
+              </label>
+
+              <select
+                value={filtroTecnico}
+                onChange={(event) =>
+                  setFiltroTecnico(
+                    event.target.value,
+                  )
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#1F4697]"
+              >
+                <option value="">
+                  Todos
+                </option>
+
+                {tecnicos.map(
+                  (tecnico) => (
+                    <option
+                      key={tecnico.id}
+                      value={tecnico.id}
+                    >
+                      {tecnico.usuario}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Prioridad
+              </label>
+
+              <select
+                value={
+                  filtroPrioridad
+                }
+                onChange={(event) =>
+                  setFiltroPrioridad(
+                    event.target.value,
+                  )
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#1F4697]"
+              >
+                <option value="">
+                  Todas
+                </option>
+
+                {prioridades.map(
+                  (prioridad) => (
+                    <option
+                      key={
+                        prioridad.idPrioridad
+                      }
+                      value={
+                        prioridad.idPrioridad
+                      }
+                    >
+                      {prioridad.nombre}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={limpiarFiltros}
+                className="w-full rounded-lg border border-[#1F4697] bg-white px-4 py-2.5 text-sm font-semibold text-[#1F4697] transition hover:bg-blue-50"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-[#1F4697]">
+              Incidentes registrados
+            </h2>
+
+            <p className="mt-1 text-sm text-[#61605E]">
+              Mostrando{' '}
+              <strong>
+                {ticketsFiltrados.length}
+              </strong>{' '}
+              de{' '}
+              <strong>
+                {tickets.length}
+              </strong>{' '}
+              tickets
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm">
+            <p className="text-xs text-[#61605E]">
+              Resultados
+            </p>
+
+            <p className="text-xl font-bold text-[#1F4697]">
+              {ticketsFiltrados.length}
+            </p>
+          </div>
+        </div>
+
         {ticketsFiltrados.length ===
         0 ? (
-          <div className="rounded-xl bg-white px-6 py-12 text-center shadow-sm">
-            <p className="font-medium text-slate-700">
+          <div className="rounded-xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
+            <p className="font-semibold text-[#1F4697]">
               No se encontraron tickets.
             </p>
 
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-[#61605E]">
               Cambie o elimine los filtros
               seleccionados.
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
-                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Código
                     </th>
 
-                    <th className="px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Título
                     </th>
 
-                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Solicitante
                     </th>
 
-                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Categoría
                     </th>
 
-                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Técnico
                     </th>
 
-                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Prioridad
                     </th>
 
-                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Estado
                     </th>
 
-                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Fecha
                     </th>
 
-                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-slate-700">
+                    <th className="whitespace-nowrap px-4 py-4 text-left text-sm font-semibold text-[#1F4697]">
                       Acciones
                     </th>
                   </tr>
@@ -654,15 +681,15 @@ export default function TodosTicketsPage() {
                         key={
                           ticket.idTicket
                         }
-                        className="border-b border-slate-100 last:border-0"
+                        className="border-b border-slate-100 transition hover:bg-slate-50 last:border-0"
                       >
-                        <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-900">
+                        <td className="whitespace-nowrap px-4 py-4 font-bold text-[#1F4697]">
                           {
                             ticket.codigo
                           }
                         </td>
 
-                        <td className="min-w-[220px] px-4 py-4 text-slate-700">
+                        <td className="min-w-[220px] px-4 py-4 font-medium text-slate-800">
                           {
                             ticket.titulo
                           }
@@ -697,14 +724,18 @@ export default function TodosTicketsPage() {
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-4">
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${claseEstado(
+                              ticket.idEstado,
+                            )}`}
+                          >
                             {ticket.estado
                               ?.nombre ??
                               'Sin estado'}
                           </span>
                         </td>
 
-                        <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600">
+                        <td className="whitespace-nowrap px-4 py-4 text-sm text-[#61605E]">
                           {formatearFecha(
                             ticket.fechaCreacion,
                           )}
@@ -712,12 +743,13 @@ export default function TodosTicketsPage() {
 
                         <td className="whitespace-nowrap px-4 py-4">
                           <button
+                            type="button"
                             onClick={() =>
                               router.push(
                                 `/tickets/${ticket.idTicket}`,
                               )
                             }
-                            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                            className="rounded-lg bg-[#1F4697] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-900"
                           >
                             Ver detalle
                           </button>
@@ -731,6 +763,6 @@ export default function TodosTicketsPage() {
           </div>
         )}
       </section>
-    </main>
+    </AppShell>
   );
 }

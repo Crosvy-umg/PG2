@@ -8,6 +8,8 @@ import {
 
 import { useRouter } from 'next/navigation';
 
+import AppShell from '../../../components/AppShell';
+
 interface Perfil {
   sub: number;
   usuario: string;
@@ -96,7 +98,9 @@ export default function GestionTicketsPage() {
     useState<Prioridad[]>([]);
 
   const [selecciones, setSelecciones] =
-    useState<Record<number, SeleccionTicket>>({});
+    useState<
+      Record<number, SeleccionTicket>
+    >({});
 
   const [cargando, setCargando] =
     useState(true);
@@ -117,7 +121,9 @@ export default function GestionTicketsPage() {
       }
 
       const token =
-        localStorage.getItem('access_token');
+        localStorage.getItem(
+          'access_token',
+        );
 
       if (!token) {
         router.replace('/');
@@ -125,14 +131,16 @@ export default function GestionTicketsPage() {
       }
 
       try {
-        const respuestaPerfil = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
+        const respuestaPerfil =
+          await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             },
-          },
-        );
+          );
 
         if (!respuestaPerfil.ok) {
           localStorage.removeItem(
@@ -148,16 +156,20 @@ export default function GestionTicketsPage() {
 
         const perfilNormalizado: Perfil =
           dataPerfil.usuario &&
-          typeof dataPerfil.usuario === 'object'
+          typeof dataPerfil.usuario ===
+            'object'
             ? dataPerfil.usuario
             : dataPerfil;
 
-        if (
-          perfilNormalizado.rol !==
-            'Administrador' &&
-          perfilNormalizado.rol !==
-            'Supervisor'
-        ) {
+        const autorizado =
+          perfilNormalizado.idRol === 6 ||
+          perfilNormalizado.idRol === 7 ||
+          perfilNormalizado.rol?.trim() ===
+            'Supervisor' ||
+          perfilNormalizado.rol?.trim() ===
+            'Administrador';
+
+        if (!autorizado) {
           router.replace('/dashboard');
           return;
         }
@@ -173,7 +185,8 @@ export default function GestionTicketsPage() {
             `${process.env.NEXT_PUBLIC_API_URL}/tickets`,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization:
+                  `Bearer ${token}`,
               },
             },
           ),
@@ -182,7 +195,8 @@ export default function GestionTicketsPage() {
             `${process.env.NEXT_PUBLIC_API_URL}/usuarios/tecnicos`,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization:
+                  `Bearer ${token}`,
               },
             },
           ),
@@ -191,7 +205,8 @@ export default function GestionTicketsPage() {
             `${process.env.NEXT_PUBLIC_API_URL}/prioridades`,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization:
+                  `Bearer ${token}`,
               },
             },
           ),
@@ -235,13 +250,15 @@ export default function GestionTicketsPage() {
 
         setTecnicos(
           tecnicosData.filter(
-            (tecnico) => tecnico.activo,
+            (tecnico) =>
+              tecnico.activo,
           ),
         );
 
         setPrioridades(
           prioridadesData.sort(
-            (a, b) => a.nivel - b.nivel,
+            (a, b) =>
+              a.nivel - b.nivel,
           ),
         );
       } catch {
@@ -271,10 +288,12 @@ export default function GestionTicketsPage() {
 
       [idTicket]: {
         idTecnico:
-          actual[idTicket]?.idTecnico ?? '',
+          actual[idTicket]
+            ?.idTecnico ?? '',
 
         idPrioridad:
-          actual[idTicket]?.idPrioridad ?? '',
+          actual[idTicket]
+            ?.idPrioridad ?? '',
 
         [campo]: valor,
       },
@@ -304,58 +323,65 @@ export default function GestionTicketsPage() {
     }
 
     const token =
-      localStorage.getItem('access_token');
+      localStorage.getItem(
+        'access_token',
+      );
 
     if (!token) {
       router.replace('/');
       return;
     }
 
-    setProcesando(ticket.idTicket);
+    setProcesando(
+      ticket.idTicket,
+    );
 
     setMensaje('');
-
     setMensajeExito('');
 
     try {
-      const respuesta = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticket.idTicket}/atencion`,
-        {
-          method: 'PATCH',
+      const respuesta =
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticket.idTicket}/atencion`,
+          {
+            method: 'PATCH',
 
-          headers: {
-            'Content-Type':
-              'application/json',
+            headers: {
+              'Content-Type':
+                'application/json',
 
-            Authorization:
-              `Bearer ${token}`,
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              idTecnico: Number(
+                seleccion.idTecnico,
+              ),
+
+              idPrioridad: Number(
+                seleccion.idPrioridad,
+              ),
+
+              idEstado: 3,
+            }),
           },
+        );
 
-          body: JSON.stringify({
-            idTecnico: Number(
-              seleccion.idTecnico,
-            ),
-
-            idPrioridad: Number(
-              seleccion.idPrioridad,
-            ),
-
-            idEstado: 3,
-          }),
-        },
-      );
-
-      if (respuesta.status === 401) {
+      if (
+        respuesta.status === 401
+      ) {
         localStorage.removeItem(
           'access_token',
         );
 
         router.replace('/');
-
         return;
       }
 
-      if (respuesta.status === 403) {
+      if (
+        respuesta.status === 403
+      ) {
         setMensaje(
           'No tiene permisos para asignar tickets.',
         );
@@ -371,8 +397,12 @@ export default function GestionTicketsPage() {
 
         if (errorData?.message) {
           setMensaje(
-            Array.isArray(errorData.message)
-              ? errorData.message.join(', ')
+            Array.isArray(
+              errorData.message,
+            )
+              ? errorData.message.join(
+                  ', ',
+                )
               : errorData.message,
           );
         } else {
@@ -388,17 +418,19 @@ export default function GestionTicketsPage() {
         `${ticket.codigo} fue asignado correctamente.`,
       );
 
-      setSelecciones((actual) => {
-        const nuevasSelecciones = {
-          ...actual,
-        };
+      setSelecciones(
+        (actual) => {
+          const nuevasSelecciones = {
+            ...actual,
+          };
 
-        delete nuevasSelecciones[
-          ticket.idTicket
-        ];
+          delete nuevasSelecciones[
+            ticket.idTicket
+          ];
 
-        return nuevasSelecciones;
-      });
+          return nuevasSelecciones;
+        },
+      );
 
       await cargarDatos(false);
     } catch {
@@ -410,14 +442,53 @@ export default function GestionTicketsPage() {
     }
   }
 
+  function claseEstado(
+    idEstado: number,
+  ) {
+    switch (idEstado) {
+      case 1:
+        return 'bg-blue-50 text-[#1F4697]';
+
+      case 2:
+        return 'bg-violet-50 text-violet-700';
+
+      case 3:
+        return 'bg-orange-50 text-orange-700';
+
+      case 4:
+        return 'bg-amber-50 text-amber-700';
+
+      case 5:
+        return 'bg-green-50 text-green-700';
+
+      case 6:
+        return 'bg-slate-100 text-slate-700';
+
+      default:
+        return 'bg-slate-100 text-slate-700';
+    }
+  }
+
+  function formatearFecha(
+    fecha: string,
+  ) {
+    return new Date(
+      fecha,
+    ).toLocaleString('es-GT');
+  }
+
   if (cargando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-slate-600">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F6F8]">
+        <p className="text-[#61605E]">
           Cargando tickets...
         </p>
       </main>
     );
+  }
+
+  if (!perfil) {
+    return null;
   }
 
   const ticketsPendientes =
@@ -437,73 +508,75 @@ export default function GestionTicketsPage() {
     );
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              Gestión de Incidentes TI
-            </h1>
-
-            <p className="text-sm text-slate-500">
-              Administración de tickets
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {perfil && (
-              <div className="text-right">
-                <p className="font-medium text-slate-900">
-                  {perfil.usuario}
-                </p>
-
-                <p className="text-sm text-slate-500">
-                  {perfil.rol}
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={() =>
-                router.push('/dashboard')
-              }
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Volver
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-7xl px-6 py-8">
+    <AppShell perfil={perfil}>
+      <section className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Tickets pendientes de asignación
-          </h2>
+          <p className="mb-1 text-sm font-semibold text-[#EC2328]">
+            Gestión de tickets
+          </p>
 
-          <p className="mt-1 text-slate-500">
-            Seleccione el técnico y la prioridad
-            para iniciar la atención.
+          <h1 className="text-3xl font-bold text-[#1F4697]">
+            Asignación de tickets
+          </h1>
+
+          <p className="mt-2 text-[#61605E]">
+            Asigne técnico y prioridad a
+            los incidentes nuevos para
+            iniciar su atención.
           </p>
         </div>
 
         {mensaje && (
-          <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {mensaje}
           </div>
         )}
 
         {mensajeExito && (
-          <div className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
             {mensajeExito}
           </div>
         )}
 
-        {ticketsPendientes.length === 0 ? (
-          <div className="rounded-xl bg-white p-8 text-center shadow-sm">
-            <p className="font-medium text-slate-700">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-[#1F4697]">
+              Tickets pendientes de asignación
+            </h2>
+
+            <p className="mt-1 text-sm text-[#61605E]">
+              Seleccione el técnico y la
+              prioridad para iniciar la
+              atención.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm">
+            <p className="text-xs text-[#61605E]">
+              Pendientes
+            </p>
+
+            <p className="text-xl font-bold text-[#EC2328]">
+              {
+                ticketsPendientes.length
+              }
+            </p>
+          </div>
+        </div>
+
+        {ticketsPendientes.length ===
+        0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-1 w-14 rounded-full bg-green-500" />
+
+            <p className="font-semibold text-[#1F4697]">
               No hay tickets pendientes de
               asignación.
+            </p>
+
+            <p className="mt-2 text-sm text-[#61605E]">
+              Todos los tickets nuevos ya
+              cuentan con atención asignada.
             </p>
           </div>
         ) : (
@@ -512,197 +585,234 @@ export default function GestionTicketsPage() {
               (ticket) => (
                 <div
                   key={ticket.idTicket}
-                  className="rounded-xl bg-white p-6 shadow-sm"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
                 >
-                  <div className="flex flex-col justify-between gap-5 lg:flex-row">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-lg font-bold text-slate-900">
-                          {ticket.codigo}
-                        </h3>
+                  <div className="h-1 bg-[#EC2328]" />
 
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                          {ticket.estado.nombre}
-                        </span>
-                      </div>
+                  <div className="p-6">
+                    <div className="flex flex-col justify-between gap-6 lg:flex-row">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="text-xl font-bold text-[#1F4697]">
+                            {ticket.codigo}
+                          </h3>
 
-                      <h4 className="mt-2 text-lg text-slate-800">
-                        {ticket.titulo}
-                      </h4>
-
-                      <p className="mt-2 text-sm text-slate-500">
-                        {ticket.descripcion}
-                      </p>
-
-                      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Solicitante
-                          </p>
-
-                          <p className="font-medium text-slate-900">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${claseEstado(
+                              ticket.idEstado,
+                            )}`}
+                          >
                             {
-                              ticket
-                                .solicitante
-                                .usuario
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Categoría
-                          </p>
-
-                          <p className="font-medium text-slate-900">
-                            {
-                              ticket
-                                .categoria
+                              ticket.estado
                                 .nombre
                             }
-                          </p>
+                          </span>
                         </div>
 
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Impacto
-                          </p>
+                        <h4 className="mt-2 text-lg font-semibold text-slate-900">
+                          {ticket.titulo}
+                        </h4>
 
-                          <p className="font-medium text-slate-900">
-                            {ticket.impacto}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Urgencia
-                          </p>
-
-                          <p className="font-medium text-slate-900">
-                            {ticket.urgencia}
-                          </p>
-                        </div>
-                      </div>
-
-                      <p className="mt-4 text-xs text-slate-400">
-                        Creado:{' '}
-                        {new Date(
-                          ticket.fechaCreacion,
-                        ).toLocaleString(
-                          'es-GT',
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="w-full rounded-xl bg-slate-50 p-5 lg:w-80">
-                      <h4 className="mb-4 font-semibold text-slate-900">
-                        Asignar atención
-                      </h4>
-
-                      <label className="mb-2 block text-sm font-medium text-slate-700">
-                        Técnico
-                      </label>
-
-                      <select
-                        value={
-                          selecciones[
-                            ticket.idTicket
-                          ]?.idTecnico ?? ''
-                        }
-                        onChange={(event) =>
-                          cambiarSeleccion(
-                            ticket.idTicket,
-                            'idTecnico',
-                            event.target.value,
-                          )
-                        }
-                        className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-slate-500"
-                      >
-                        <option value="">
-                          Seleccione un técnico
-                        </option>
-
-                        {tecnicos.map(
-                          (tecnico) => (
-                            <option
-                              key={tecnico.id}
-                              value={tecnico.id}
-                            >
-                              {
-                                tecnico.usuario
-                              }
-                            </option>
-                          ),
-                        )}
-                      </select>
-
-                      <label className="mb-2 block text-sm font-medium text-slate-700">
-                        Prioridad
-                      </label>
-
-                      <select
-                        value={
-                          selecciones[
-                            ticket.idTicket
-                          ]?.idPrioridad ??
-                          ''
-                        }
-                        onChange={(event) =>
-                          cambiarSeleccion(
-                            ticket.idTicket,
-                            'idPrioridad',
-                            event.target.value,
-                          )
-                        }
-                        className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-slate-500"
-                      >
-                        <option value="">
-                          Seleccione una prioridad
-                        </option>
-
-                        {prioridades.map(
-                          (prioridad) => (
-                            <option
-                              key={
-                                prioridad.idPrioridad
-                              }
-                              value={
-                                prioridad.idPrioridad
-                              }
-                            >
-                              {
-                                prioridad.nombre
-                              }
-                            </option>
-                          ),
-                        )}
-                      </select>
-
-                      <div className="mb-4">
-                        <p className="text-sm text-slate-500">
-                          Estado al asignar
+                        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#61605E]">
+                          {
+                            ticket.descripcion
+                          }
                         </p>
 
-                        <p className="font-semibold text-slate-900">
-                          En atención
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-lg bg-slate-50 px-4 py-3">
+                            <p className="text-xs text-[#61605E]">
+                              Solicitante
+                            </p>
+
+                            <p className="mt-1 font-semibold text-slate-900">
+                              {
+                                ticket
+                                  .solicitante
+                                  .usuario
+                              }
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg bg-slate-50 px-4 py-3">
+                            <p className="text-xs text-[#61605E]">
+                              Categoría
+                            </p>
+
+                            <p className="mt-1 font-semibold text-slate-900">
+                              {
+                                ticket
+                                  .categoria
+                                  .nombre
+                              }
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg bg-slate-50 px-4 py-3">
+                            <p className="text-xs text-[#61605E]">
+                              Impacto
+                            </p>
+
+                            <p className="mt-1 font-semibold text-slate-900">
+                              {
+                                ticket.impacto
+                              }
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg bg-slate-50 px-4 py-3">
+                            <p className="text-xs text-[#61605E]">
+                              Urgencia
+                            </p>
+
+                            <p className="mt-1 font-semibold text-slate-900">
+                              {
+                                ticket.urgencia
+                              }
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="mt-5 text-xs text-slate-400">
+                          Creado:{' '}
+                          {formatearFecha(
+                            ticket.fechaCreacion,
+                          )}
                         </p>
                       </div>
 
-                      <button
-                        onClick={() =>
-                          asignarTicket(ticket)
-                        }
-                        disabled={
-                          procesando ===
+                      <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-5 lg:w-80">
+                        <div className="mb-5">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#EC2328]">
+                            Atención
+                          </p>
+
+                          <h4 className="mt-1 text-lg font-bold text-[#1F4697]">
+                            Asignar ticket
+                          </h4>
+                        </div>
+
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Técnico
+                        </label>
+
+                        <select
+                          value={
+                            selecciones[
+                              ticket.idTicket
+                            ]?.idTecnico ??
+                            ''
+                          }
+                          onChange={(
+                            event,
+                          ) =>
+                            cambiarSeleccion(
+                              ticket.idTicket,
+                              'idTecnico',
+                              event.target
+                                .value,
+                            )
+                          }
+                          className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">
+                            Seleccione un técnico
+                          </option>
+
+                          {tecnicos.map(
+                            (tecnico) => (
+                              <option
+                                key={
+                                  tecnico.id
+                                }
+                                value={
+                                  tecnico.id
+                                }
+                              >
+                                {
+                                  tecnico.usuario
+                                }
+                              </option>
+                            ),
+                          )}
+                        </select>
+
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Prioridad
+                        </label>
+
+                        <select
+                          value={
+                            selecciones[
+                              ticket.idTicket
+                            ]?.idPrioridad ??
+                            ''
+                          }
+                          onChange={(
+                            event,
+                          ) =>
+                            cambiarSeleccion(
+                              ticket.idTicket,
+                              'idPrioridad',
+                              event.target
+                                .value,
+                            )
+                          }
+                          className="mb-4 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">
+                            Seleccione una prioridad
+                          </option>
+
+                          {prioridades.map(
+                            (
+                              prioridad,
+                            ) => (
+                              <option
+                                key={
+                                  prioridad.idPrioridad
+                                }
+                                value={
+                                  prioridad.idPrioridad
+                                }
+                              >
+                                {
+                                  prioridad.nombre
+                                }
+                              </option>
+                            ),
+                          )}
+                        </select>
+
+                        <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+                          <p className="text-xs text-[#61605E]">
+                            Estado al asignar
+                          </p>
+
+                          <p className="mt-1 font-semibold text-[#1F4697]">
+                            En atención
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            asignarTicket(
+                              ticket,
+                            )
+                          }
+                          disabled={
+                            procesando ===
+                            ticket.idTicket
+                          }
+                          className="w-full rounded-lg bg-[#1F4697] px-4 py-3 font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {procesando ===
                           ticket.idTicket
-                        }
-                        className="w-full rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                      >
-                        {procesando ===
-                        ticket.idTicket
-                          ? 'Asignando...'
-                          : 'Asignar ticket'}
-                      </button>
+                            ? 'Asignando...'
+                            : 'Asignar ticket'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -712,46 +822,66 @@ export default function GestionTicketsPage() {
         )}
 
         <div className="mt-12">
-          <div className="mb-5">
-            <h2 className="text-xl font-bold text-slate-900">
-              Tickets gestionados
-            </h2>
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-[#1F4697]">
+                Tickets gestionados
+              </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Tickets que ya fueron asignados o
-              atendidos.
-            </p>
+              <p className="mt-1 text-sm text-[#61605E]">
+                Tickets que ya fueron
+                asignados o atendidos.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm">
+              <p className="text-xs text-[#61605E]">
+                Gestionados
+              </p>
+
+              <p className="text-xl font-bold text-[#1F4697]">
+                {
+                  ticketsGestionados.length
+                }
+              </p>
+            </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-            {ticketsGestionados.length ===
-            0 ? (
-              <p className="p-6 text-slate-500">
+          {ticketsGestionados.length ===
+          0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+              <p className="text-[#61605E]">
                 No hay tickets gestionados.
               </p>
-            ) : (
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-sm text-slate-600">
+                  <thead className="border-b border-slate-200 bg-slate-50">
                     <tr>
-                      <th className="px-5 py-4">
+                      <th className="px-5 py-4 text-sm font-semibold text-[#1F4697]">
                         Código
                       </th>
 
-                      <th className="px-5 py-4">
+                      <th className="px-5 py-4 text-sm font-semibold text-[#1F4697]">
                         Título
                       </th>
 
-                      <th className="px-5 py-4">
+                      <th className="px-5 py-4 text-sm font-semibold text-[#1F4697]">
                         Técnico
                       </th>
 
-                      <th className="px-5 py-4">
+                      <th className="px-5 py-4 text-sm font-semibold text-[#1F4697]">
                         Prioridad
                       </th>
 
-                      <th className="px-5 py-4">
+                      <th className="px-5 py-4 text-sm font-semibold text-[#1F4697]">
                         Estado
+                      </th>
+
+                      <th className="px-5 py-4 text-sm font-semibold text-[#1F4697]">
+                        Acciones
                       </th>
                     </tr>
                   </thead>
@@ -763,35 +893,57 @@ export default function GestionTicketsPage() {
                           key={
                             ticket.idTicket
                           }
-                          className="border-t border-slate-200"
+                          className="border-b border-slate-100 transition hover:bg-slate-50 last:border-0"
                         >
-                          <td className="px-5 py-4 font-semibold text-slate-900">
-                            {ticket.codigo}
+                          <td className="whitespace-nowrap px-5 py-4 font-bold text-[#1F4697]">
+                            {
+                              ticket.codigo
+                            }
                           </td>
 
-                          <td className="px-5 py-4 text-slate-700">
-                            {ticket.titulo}
+                          <td className="min-w-[220px] px-5 py-4 font-medium text-slate-800">
+                            {
+                              ticket.titulo
+                            }
                           </td>
 
-                          <td className="px-5 py-4 text-slate-700">
+                          <td className="whitespace-nowrap px-5 py-4 text-slate-700">
                             {ticket.tecnico
                               ?.usuario ??
                               'Sin asignar'}
                           </td>
 
-                          <td className="px-5 py-4 text-slate-700">
+                          <td className="whitespace-nowrap px-5 py-4 text-slate-700">
                             {ticket.prioridad
                               ?.nombre ??
                               'Sin prioridad'}
                           </td>
 
-                          <td className="px-5 py-4">
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                          <td className="whitespace-nowrap px-5 py-4">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${claseEstado(
+                                ticket.idEstado,
+                              )}`}
+                            >
                               {
                                 ticket.estado
                                   .nombre
                               }
                             </span>
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                router.push(
+                                  `/tickets/${ticket.idTicket}`,
+                                )
+                              }
+                              className="rounded-lg bg-[#1F4697] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-900"
+                            >
+                              Ver detalle
+                            </button>
                           </td>
                         </tr>
                       ),
@@ -799,10 +951,10 @@ export default function GestionTicketsPage() {
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }

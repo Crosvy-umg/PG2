@@ -11,6 +11,15 @@ import {
   useRouter,
 } from 'next/navigation';
 
+import AppShell from '../../../components/AppShell';
+
+interface Perfil {
+  sub: number;
+  usuario: string;
+  idRol: number;
+  rol: string;
+}
+
 interface Ticket {
   idTicket: number;
   codigo: string;
@@ -76,6 +85,9 @@ export default function DetalleTicketPage() {
 
   const idTicket = params.id;
 
+  const [perfil, setPerfil] =
+    useState<Perfil | null>(null);
+
   const [ticket, setTicket] =
     useState<Ticket | null>(null);
 
@@ -94,8 +106,48 @@ export default function DetalleTicketPage() {
   const [mensajeExito, setMensajeExito] =
     useState('');
 
-  const [estadoSeleccionado, setEstadoSeleccionado] =
-    useState('');
+  const [
+    estadoSeleccionado,
+    setEstadoSeleccionado,
+  ] = useState('');
+
+  function rutaListadoPorRol(
+    perfilActual: Perfil,
+  ) {
+    if (
+      perfilActual.idRol === 1 ||
+      perfilActual.rol?.trim() ===
+        'Solicitante'
+    ) {
+      return '/tickets/mis-tickets';
+    }
+
+    if (
+      perfilActual.idRol === 2 ||
+      perfilActual.rol?.trim() ===
+        'Técnico'
+    ) {
+      return '/tickets/asignados';
+    }
+
+    if (
+      perfilActual.idRol === 6 ||
+      perfilActual.rol?.trim() ===
+        'Supervisor'
+    ) {
+      return '/tickets/todos';
+    }
+
+    if (
+      perfilActual.idRol === 7 ||
+      perfilActual.rol?.trim() ===
+        'Administrador'
+    ) {
+      return '/tickets/todos';
+    }
+
+    return '/dashboard';
+  }
 
   const cargarInformacion = useCallback(
     async (mostrarCarga = true) => {
@@ -104,7 +156,9 @@ export default function DetalleTicketPage() {
       }
 
       const token =
-        localStorage.getItem('access_token');
+        localStorage.getItem(
+          'access_token',
+        );
 
       if (!token) {
         router.replace('/');
@@ -112,6 +166,46 @@ export default function DetalleTicketPage() {
       }
 
       try {
+        /*
+         * 1. Consultar perfil
+         */
+        const respuestaPerfil =
+          await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            },
+          );
+
+        if (!respuestaPerfil.ok) {
+          localStorage.removeItem(
+            'access_token',
+          );
+
+          router.replace('/');
+          return;
+        }
+
+        const dataPerfil =
+          await respuestaPerfil.json();
+
+        const perfilNormalizado: Perfil =
+          dataPerfil.usuario &&
+          typeof dataPerfil.usuario ===
+            'object'
+            ? dataPerfil.usuario
+            : dataPerfil;
+
+        setPerfil(
+          perfilNormalizado,
+        );
+
+        /*
+         * 2. Consultar ticket y bitácora
+         */
         const [
           respuestaTicket,
           respuestaBitacora,
@@ -120,7 +214,8 @@ export default function DetalleTicketPage() {
             `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}`,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization:
+                  `Bearer ${token}`,
               },
             },
           ),
@@ -129,7 +224,8 @@ export default function DetalleTicketPage() {
             `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/bitacora`,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization:
+                  `Bearer ${token}`,
               },
             },
           ),
@@ -143,7 +239,6 @@ export default function DetalleTicketPage() {
           );
 
           router.replace('/');
-
           return;
         }
 
@@ -151,7 +246,9 @@ export default function DetalleTicketPage() {
           respuestaTicket.status === 403
         ) {
           router.replace(
-            '/tickets/asignados',
+            rutaListadoPorRol(
+              perfilNormalizado,
+            ),
           );
 
           return;
@@ -165,16 +262,20 @@ export default function DetalleTicketPage() {
           return;
         }
 
-        const ticketData =
+        const ticketData: Ticket =
           await respuestaTicket.json();
 
         setTicket(ticketData);
 
         if (respuestaBitacora.ok) {
-          const bitacoraData =
+          const bitacoraData: Bitacora[] =
             await respuestaBitacora.json();
 
-          setBitacora(bitacoraData);
+          setBitacora(
+            bitacoraData,
+          );
+        } else {
+          setBitacora([]);
         }
       } catch {
         setMensaje(
@@ -248,7 +349,9 @@ export default function DetalleTicketPage() {
     }
 
     const token =
-      localStorage.getItem('access_token');
+      localStorage.getItem(
+        'access_token',
+      );
 
     if (!token) {
       router.replace('/');
@@ -287,7 +390,6 @@ export default function DetalleTicketPage() {
         );
 
         router.replace('/');
-
         return;
       }
 
@@ -305,9 +407,7 @@ export default function DetalleTicketPage() {
             .json()
             .catch(() => null);
 
-        if (
-          errorData?.message
-        ) {
+        if (errorData?.message) {
           setMensaje(
             Array.isArray(
               errorData.message,
@@ -342,19 +442,74 @@ export default function DetalleTicketPage() {
     }
   }
 
+  function formatearFecha(
+    fecha: string,
+  ) {
+    return new Date(
+      fecha,
+    ).toLocaleString(
+      'es-GT',
+    );
+  }
+
+  function claseEstado(
+    idEstado: number,
+  ) {
+    switch (idEstado) {
+      case 1:
+        return 'bg-blue-50 text-[#1F4697]';
+
+      case 2:
+        return 'bg-violet-50 text-violet-700';
+
+      case 3:
+        return 'bg-orange-50 text-orange-700';
+
+      case 4:
+        return 'bg-amber-50 text-amber-700';
+
+      case 5:
+        return 'bg-green-50 text-green-700';
+
+      case 6:
+        return 'bg-slate-100 text-slate-700';
+
+      default:
+        return 'bg-slate-100 text-slate-700';
+    }
+  }
+
+  function clasePrioridad(
+    nivel?: number,
+  ) {
+    switch (nivel) {
+      case 1:
+        return 'bg-green-50 text-green-700';
+
+      case 2:
+        return 'bg-amber-50 text-amber-700';
+
+      case 3:
+        return 'bg-red-50 text-[#EC2328]';
+
+      default:
+        return 'bg-slate-100 text-slate-700';
+    }
+  }
+
   if (cargando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-slate-600">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F6F8]">
+        <p className="text-[#61605E]">
           Cargando información...
         </p>
       </main>
     );
   }
 
-  if (!ticket) {
+  if (!ticket || !perfil) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F6F8]">
         <div className="text-center">
           <p className="mb-4 text-red-600">
             {mensaje ||
@@ -362,12 +517,11 @@ export default function DetalleTicketPage() {
           </p>
 
           <button
+            type="button"
             onClick={() =>
-              router.push(
-                '/tickets/asignados',
-              )
+              router.push('/dashboard')
             }
-            className="rounded-lg bg-slate-900 px-4 py-2 text-white"
+            className="rounded-lg bg-[#1F4697] px-4 py-2 font-semibold text-white"
           >
             Volver
           </button>
@@ -376,144 +530,171 @@ export default function DetalleTicketPage() {
     );
   }
 
+  const esTecnico =
+    perfil.idRol === 2 ||
+    perfil.rol?.trim() ===
+      'Técnico';
+
   const estadosPermitidos =
-    obtenerEstadosPermitidos(
-      ticket.estado.idEstado,
-    );
+    esTecnico
+      ? obtenerEstadosPermitidos(
+          ticket.estado.idEstado,
+        )
+      : [];
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+    <AppShell perfil={perfil}>
+      <section className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
+        {/* ENCABEZADO */}
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              Gestión de Incidentes TI
-            </h1>
+            <p className="mb-1 text-sm font-semibold text-[#EC2328]">
+              Detalle del incidente
+            </p>
 
-            <p className="text-sm text-slate-500">
-              Detalle del ticket
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-bold text-[#1F4697]">
+                {ticket.codigo}
+              </h1>
+
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${claseEstado(
+                  ticket.estado.idEstado,
+                )}`}
+              >
+                {ticket.estado.nombre}
+              </span>
+            </div>
+
+            <p className="mt-2 text-xl font-semibold text-slate-800">
+              {ticket.titulo}
             </p>
           </div>
 
           <button
+            type="button"
             onClick={() =>
               router.push(
-                '/tickets/asignados',
+                rutaListadoPorRol(perfil),
               )
             }
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            className="rounded-lg border border-[#1F4697] bg-white px-5 py-2.5 text-sm font-semibold text-[#1F4697] transition hover:bg-blue-50"
           >
-            Volver
+            Volver al listado
           </button>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-bold text-slate-900">
-              {ticket.codigo}
-            </h2>
-
-            <span className="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700">
-              {ticket.estado.nombre}
-            </span>
-          </div>
-
-          <h3 className="mt-2 text-xl text-slate-700">
-            {ticket.titulo}
-          </h3>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-bold text-slate-900">
-                Información del incidente
-              </h3>
+          {/* COLUMNA PRINCIPAL */}
+          <div className="space-y-6 lg:col-span-2">
+            {/* INFORMACIÓN */}
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="h-1 bg-[#EC2328]" />
 
-              <p className="whitespace-pre-wrap text-slate-700">
-                {ticket.descripcion}
-              </p>
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-[#1F4697]">
+                  Información del incidente
+                </h2>
 
-              <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm text-slate-500">
-                    Impacto
-                  </p>
+                <p className="mt-4 whitespace-pre-wrap leading-6 text-slate-700">
+                  {ticket.descripcion}
+                </p>
 
-                  <p className="font-semibold text-slate-900">
-                    {ticket.impacto}
-                  </p>
-                </div>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-[#61605E]">
+                      Impacto
+                    </p>
 
-                <div>
-                  <p className="text-sm text-slate-500">
-                    Urgencia
-                  </p>
+                    <p className="mt-1 font-semibold text-slate-900">
+                      {ticket.impacto}
+                    </p>
+                  </div>
 
-                  <p className="font-semibold text-slate-900">
-                    {ticket.urgencia}
-                  </p>
-                </div>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-[#61605E]">
+                      Urgencia
+                    </p>
 
-                <div>
-                  <p className="text-sm text-slate-500">
-                    Categoría
-                  </p>
+                    <p className="mt-1 font-semibold text-slate-900">
+                      {ticket.urgencia}
+                    </p>
+                  </div>
 
-                  <p className="font-semibold text-slate-900">
-                    {ticket.categoria.nombre}
-                  </p>
-                </div>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-[#61605E]">
+                      Categoría
+                    </p>
 
-                <div>
-                  <p className="text-sm text-slate-500">
-                    Prioridad
-                  </p>
+                    <p className="mt-1 font-semibold text-slate-900">
+                      {ticket.categoria.nombre}
+                    </p>
+                  </div>
 
-                  <p className="font-semibold text-slate-900">
-                    {ticket.prioridad?.nombre ??
-                      'Sin prioridad'}
-                  </p>
-                </div>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-[#61605E]">
+                      Prioridad
+                    </p>
 
-                <div>
-                  <p className="text-sm text-slate-500">
-                    Solicitante
-                  </p>
+                    <span
+                      className={`mt-1 inline-block rounded-full px-3 py-1 text-xs font-semibold ${clasePrioridad(
+                        ticket.prioridad
+                          ?.nivel,
+                      )}`}
+                    >
+                      {ticket.prioridad
+                        ?.nombre ??
+                        'Sin prioridad'}
+                    </span>
+                  </div>
 
-                  <p className="font-semibold text-slate-900">
-                    {
-                      ticket.solicitante
-                        .usuario
-                    }
-                  </p>
-                </div>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-[#61605E]">
+                      Solicitante
+                    </p>
 
-                <div>
-                  <p className="text-sm text-slate-500">
-                    Técnico
-                  </p>
+                    <p className="mt-1 font-semibold text-slate-900">
+                      {
+                        ticket.solicitante
+                          .usuario
+                      }
+                    </p>
+                  </div>
 
-                  <p className="font-semibold text-slate-900">
-                    {ticket.tecnico
-                      ?.usuario ??
-                      'Sin asignar'}
-                  </p>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-[#61605E]">
+                      Técnico asignado
+                    </p>
+
+                    <p className="mt-1 font-semibold text-slate-900">
+                      {ticket.tecnico
+                        ?.usuario ??
+                        'Sin asignar'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
-              <h3 className="mb-5 text-lg font-bold text-slate-900">
-                Bitácora
-              </h3>
+            {/* BITÁCORA */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <h2 className="text-xl font-bold text-[#1F4697]">
+                  Bitácora
+                </h2>
+
+                <p className="mt-1 text-sm text-[#61605E]">
+                  Historial de movimientos y cambios
+                  realizados sobre el ticket.
+                </p>
+              </div>
 
               {bitacora.length === 0 ? (
-                <p className="text-slate-500">
-                  No hay movimientos registrados.
-                </p>
+                <div className="rounded-lg bg-slate-50 px-5 py-8 text-center">
+                  <p className="text-[#61605E]">
+                    No hay movimientos registrados.
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-5">
                   {bitacora.map(
@@ -522,31 +703,29 @@ export default function DetalleTicketPage() {
                         key={
                           registro.idBitacora
                         }
-                        className="border-l-4 border-slate-300 pl-4"
+                        className="border-l-4 border-[#1F4697] pl-4"
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="font-semibold text-slate-900">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="font-bold text-slate-900">
                             {
                               registro.accion
                             }
                           </p>
 
-                          <p className="text-sm text-slate-400">
-                            {new Date(
+                          <p className="text-xs text-slate-400">
+                            {formatearFecha(
                               registro.fecha,
-                            ).toLocaleString(
-                              'es-GT',
                             )}
                           </p>
                         </div>
 
-                        <p className="mt-1 text-slate-600">
+                        <p className="mt-1 text-sm leading-6 text-slate-600">
                           {
                             registro.detalle
                           }
                         </p>
 
-                        <p className="mt-1 text-sm text-slate-400">
+                        <p className="mt-1 text-xs text-slate-400">
                           Realizado por:{' '}
                           {registro.usuario
                             ?.usuario ??
@@ -560,52 +739,50 @@ export default function DetalleTicketPage() {
             </div>
           </div>
 
+          {/* COLUMNA DERECHA */}
           <div className="space-y-6">
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-bold text-slate-900">
-                Fechas
-              </h3>
+            {/* FECHAS */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 h-1 w-10 rounded-full bg-[#1F4697]" />
 
-              <div className="space-y-4">
+              <h2 className="text-lg font-bold text-[#1F4697]">
+                Fechas
+              </h2>
+
+              <div className="mt-5 space-y-4">
                 <div>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs text-[#61605E]">
                     Creación
                   </p>
 
-                  <p className="font-medium text-slate-900">
-                    {new Date(
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {formatearFecha(
                       ticket.fechaCreacion,
-                    ).toLocaleString(
-                      'es-GT',
                     )}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs text-[#61605E]">
                     Última actualización
                   </p>
 
-                  <p className="font-medium text-slate-900">
-                    {new Date(
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {formatearFecha(
                       ticket.fechaActualizacion,
-                    ).toLocaleString(
-                      'es-GT',
                     )}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs text-[#61605E]">
                     Cierre
                   </p>
 
-                  <p className="font-medium text-slate-900">
+                  <p className="mt-1 font-semibold text-slate-900">
                     {ticket.fechaCierre
-                      ? new Date(
+                      ? formatearFecha(
                           ticket.fechaCierre,
-                        ).toLocaleString(
-                          'es-GT',
                         )
                       : 'Pendiente'}
                   </p>
@@ -613,25 +790,34 @@ export default function DetalleTicketPage() {
               </div>
             </div>
 
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-bold text-slate-900">
+            {/* GESTIÓN */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 h-1 w-10 rounded-full bg-[#EC2328]" />
+
+              <h2 className="text-lg font-bold text-[#1F4697]">
                 Gestión del ticket
-              </h3>
+              </h2>
 
-              {estadosPermitidos.length >
-              0 ? (
+              <div className="mt-5">
+                <p className="text-xs text-[#61605E]">
+                  Estado actual
+                </p>
+
+                <span
+                  className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold ${claseEstado(
+                    ticket.estado.idEstado,
+                  )}`}
+                >
+                  {ticket.estado.nombre}
+                </span>
+              </div>
+
+              {esTecnico &&
+              estadosPermitidos.length > 0 ? (
                 <>
-                  <p className="mb-3 text-sm text-slate-500">
-                    Estado actual
-                  </p>
-
-                  <p className="mb-5 font-semibold text-slate-900">
-                    {ticket.estado.nombre}
-                  </p>
-
                   <label
                     htmlFor="estado"
-                    className="mb-2 block text-sm font-medium text-slate-700"
+                    className="mb-2 mt-6 block text-sm font-semibold text-slate-700"
                   >
                     Nuevo estado
                   </label>
@@ -649,7 +835,7 @@ export default function DetalleTicketPage() {
                       setMensaje('');
                       setMensajeExito('');
                     }}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-slate-500"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
                   >
                     <option value="">
                       Seleccione un estado
@@ -672,6 +858,7 @@ export default function DetalleTicketPage() {
                   </select>
 
                   <button
+                    type="button"
                     onClick={
                       actualizarEstado
                     }
@@ -679,46 +866,44 @@ export default function DetalleTicketPage() {
                       actualizando ||
                       !estadoSeleccionado
                     }
-                    className="mt-4 w-full rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    className="mt-4 w-full rounded-lg bg-[#1F4697] px-4 py-3 font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-400"
                   >
                     {actualizando
                       ? 'Actualizando...'
                       : 'Actualizar estado'}
                   </button>
-
-                  {mensajeExito && (
-                    <div className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-                      {mensajeExito}
-                    </div>
-                  )}
-
-                  {mensaje && (
-                    <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                      {mensaje}
-                    </div>
-                  )}
                 </>
+              ) : esTecnico ? (
+                <p className="mt-5 text-sm leading-6 text-[#61605E]">
+                  {ticket.estado
+                    .idEstado === 6
+                    ? 'El ticket se encuentra cerrado y ya no puede cambiar de estado.'
+                    : 'No hay cambios de estado disponibles.'}
+                </p>
               ) : (
-                <div>
-                  <p className="font-semibold text-slate-900">
-                    {
-                      ticket.estado
-                        .nombre
-                    }
-                  </p>
+                <p className="mt-5 text-sm leading-6 text-[#61605E]">
+                  El cambio de estado corresponde al
+                  técnico asignado. Puede consultar el
+                  seguimiento del incidente desde esta
+                  pantalla.
+                </p>
+              )}
 
-                  <p className="mt-2 text-sm text-slate-500">
-                    {ticket.estado
-                      .idEstado === 6
-                      ? 'El ticket se encuentra cerrado y ya no puede cambiar de estado.'
-                      : 'No hay cambios de estado disponibles.'}
-                  </p>
+              {mensajeExito && (
+                <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                  {mensajeExito}
+                </div>
+              )}
+
+              {mensaje && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {mensaje}
                 </div>
               )}
             </div>
           </div>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }

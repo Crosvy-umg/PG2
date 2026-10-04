@@ -9,6 +9,8 @@ import {
 
 import { useRouter } from 'next/navigation';
 
+import AppShell from '../../components/AppShell';
+
 interface Perfil {
   sub: number;
   usuario: string;
@@ -456,98 +458,69 @@ export default function UsuariosPage() {
 
   if (cargando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-slate-600">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F6F8]">
+        <p className="text-[#61605E]">
           Cargando...
         </p>
       </main>
     );
   }
 
+  if (!perfil) {
+    return null;
+  }
+
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              Gestión de Incidentes TI
-            </h1>
+    <AppShell perfil={perfil}>
+      <section className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
+        <div className="mb-8">
+          <p className="mb-1 text-sm font-semibold text-[#EC2328]">
+            Administración
+          </p>
 
-            <p className="text-sm text-slate-500">
-              Administración de usuarios
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {perfil && (
-              <div className="text-right">
-                <p className="font-medium text-slate-900">
-                  {perfil.usuario}
-                </p>
-
-                <p className="text-sm text-slate-500">
-                  {perfil.rol}
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={() =>
-                router.push(
-                  '/dashboard',
-                )
-              }
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Volver
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-3xl font-bold text-[#1F4697]">
             Usuarios
-          </h2>
+          </h1>
 
-          <p className="mt-1 text-slate-500">
+          <p className="mt-2 text-[#61605E]">
             Cree usuarios y administre las
-            cuentas registradas en el
-            sistema.
+            cuentas registradas en el sistema.
           </p>
         </div>
 
         {mensaje && (
-          <div className="mb-5 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
             {mensaje}
           </div>
         )}
 
         {error && (
-          <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {error}
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+        <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+          {/* CREAR USUARIO */}
           <div>
             <form
               onSubmit={crearUsuario}
               autoComplete="off"
-              className="rounded-xl bg-white p-6 shadow-sm"
+              className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
             >
-              <h3 className="text-lg font-bold text-slate-900">
-                Crear usuario
-              </h3>
+              <div className="mb-5 h-1 w-12 rounded-full bg-[#EC2328]" />
 
-              <p className="mt-1 text-sm text-slate-500">
+              <h2 className="text-xl font-bold text-[#1F4697]">
+                Crear usuario
+              </h2>
+
+              <p className="mt-1 text-sm text-[#61605E]">
                 Ingrese los datos de la
                 nueva cuenta.
               </p>
 
               <div className="mt-6">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Usuario
                 </label>
 
@@ -568,12 +541,12 @@ export default function UsuariosPage() {
                     })
                   }
                   placeholder="Ejemplo: tecnico2"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-slate-500"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
               <div className="mt-4">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Contraseña
                 </label>
 
@@ -594,12 +567,12 @@ export default function UsuariosPage() {
                     })
                   }
                   placeholder="Mínimo 6 caracteres"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-slate-500"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
               <div className="mt-4">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Rol
                 </label>
 
@@ -617,7 +590,7 @@ export default function UsuariosPage() {
                       ),
                     })
                   }
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#1F4697]"
                 >
                   <option value={1}>
                     Solicitante
@@ -640,61 +613,85 @@ export default function UsuariosPage() {
               <button
                 type="submit"
                 disabled={guardando}
-                className="mt-6 w-full rounded-lg bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="mt-6 w-full rounded-lg bg-[#1F4697] px-4 py-3 font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {guardando
                   ? 'Creando...'
                   : 'Crear usuario'}
               </button>
             </form>
+
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-[#1F4697]">
+                Roles disponibles
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-[#61605E]">
+                Solicitante, Técnico,
+                Supervisor y Administrador.
+              </p>
+            </div>
           </div>
 
+          {/* LISTADO */}
           <div>
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-slate-900">
-                Usuarios registrados
-              </h3>
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-[#1F4697]">
+                  Usuarios registrados
+                </h2>
 
-              <p className="text-sm text-slate-500">
-                Total:{' '}
-                {usuarios.length}
-              </p>
+                <p className="mt-1 text-sm text-[#61605E]">
+                  Consulte y administre el
+                  acceso de los usuarios.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm">
+                <p className="text-xs text-[#61605E]">
+                  Total de usuarios
+                </p>
+
+                <p className="text-xl font-bold text-[#1F4697]">
+                  {usuarios.length}
+                </p>
+              </div>
             </div>
 
             {usuarios.length === 0 ? (
-              <div className="rounded-xl bg-white p-10 text-center shadow-sm">
-                <p className="text-slate-600">
+              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+                <p className="text-[#61605E]">
                   No hay usuarios
                   registrados.
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="border-b border-slate-200 bg-slate-50">
                       <tr>
-                        <th className="whitespace-nowrap px-5 py-4 text-left text-sm font-semibold text-slate-700">
+                        <th className="whitespace-nowrap px-5 py-4 text-left text-sm font-semibold text-[#1F4697]">
                           ID
                         </th>
 
-                        <th className="px-5 py-4 text-left text-sm font-semibold text-slate-700">
+                        <th className="px-5 py-4 text-left text-sm font-semibold text-[#1F4697]">
                           Usuario
                         </th>
 
-                        <th className="px-5 py-4 text-left text-sm font-semibold text-slate-700">
+                        <th className="px-5 py-4 text-left text-sm font-semibold text-[#1F4697]">
                           Rol
                         </th>
 
-                        <th className="px-5 py-4 text-left text-sm font-semibold text-slate-700">
+                        <th className="px-5 py-4 text-left text-sm font-semibold text-[#1F4697]">
                           Estado
                         </th>
 
-                        <th className="whitespace-nowrap px-5 py-4 text-left text-sm font-semibold text-slate-700">
+                        <th className="whitespace-nowrap px-5 py-4 text-left text-sm font-semibold text-[#1F4697]">
                           Fecha de creación
                         </th>
 
-                        <th className="px-5 py-4 text-left text-sm font-semibold text-slate-700">
+                        <th className="px-5 py-4 text-left text-sm font-semibold text-[#1F4697]">
                           Acciones
                         </th>
                       </tr>
@@ -704,7 +701,7 @@ export default function UsuariosPage() {
                       {usuarios.map(
                         (usuario) => {
                           const esCuentaActual =
-                            perfil?.sub ===
+                            perfil.sub ===
                             usuario.id;
 
                           return (
@@ -712,9 +709,9 @@ export default function UsuariosPage() {
                               key={
                                 usuario.id
                               }
-                              className="border-b border-slate-100 last:border-0"
+                              className="border-b border-slate-100 transition hover:bg-slate-50 last:border-0"
                             >
-                              <td className="px-5 py-4 font-medium text-slate-700">
+                              <td className="px-5 py-4 font-medium text-slate-600">
                                 {
                                   usuario.id
                                 }
@@ -726,8 +723,8 @@ export default function UsuariosPage() {
                                 }
 
                                 {esCuentaActual && (
-                                  <span className="ml-2 text-xs font-normal text-slate-400">
-                                    (usted)
+                                  <span className="ml-2 rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-[#1F4697]">
+                                    Usted
                                   </span>
                                 )}
                               </td>
@@ -750,7 +747,7 @@ export default function UsuariosPage() {
                                 )}
                               </td>
 
-                              <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                              <td className="whitespace-nowrap px-5 py-4 text-sm text-[#61605E]">
                                 {formatearFecha(
                                   usuario.fechaCreacion,
                                 )}
@@ -759,7 +756,7 @@ export default function UsuariosPage() {
                               <td className="px-5 py-4">
                                 {esCuentaActual &&
                                 usuario.activo ? (
-                                  <span className="text-xs text-slate-400">
+                                  <span className="text-xs font-medium text-slate-400">
                                     Cuenta actual
                                   </span>
                                 ) : (
@@ -776,7 +773,7 @@ export default function UsuariosPage() {
                                     }
                                     className={
                                       usuario.activo
-                                        ? 'rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50'
+                                        ? 'rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-[#EC2328] transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50'
                                         : 'rounded-lg border border-green-200 bg-white px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50'
                                     }
                                   >
@@ -801,6 +798,6 @@ export default function UsuariosPage() {
           </div>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }

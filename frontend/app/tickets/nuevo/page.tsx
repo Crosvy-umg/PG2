@@ -9,6 +9,8 @@ import {
 
 import { useRouter } from 'next/navigation';
 
+import AppShell from '../../../components/AppShell';
+
 interface Perfil {
   sub: number;
   usuario: string;
@@ -70,99 +72,113 @@ export default function NuevoTicketPage() {
   const [mensajeExito, setMensajeExito] =
     useState('');
 
-  const cargarDatos = useCallback(async () => {
-    const token =
-      localStorage.getItem('access_token');
-
-    if (!token) {
-      router.replace('/');
-      return;
-    }
-
-    try {
-      const respuestaPerfil = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (!respuestaPerfil.ok) {
-        localStorage.removeItem(
+  const cargarDatos = useCallback(
+    async () => {
+      const token =
+        localStorage.getItem(
           'access_token',
         );
 
+      if (!token) {
         router.replace('/');
         return;
       }
 
-      const dataPerfil =
-        await respuestaPerfil.json();
-
-      const perfilNormalizado: Perfil =
-        dataPerfil.usuario &&
-        typeof dataPerfil.usuario === 'object'
-          ? dataPerfil.usuario
-          : dataPerfil;
-
-      if (
-        perfilNormalizado.rol !==
-        'Solicitante'
-      ) {
-        router.replace('/dashboard');
-        return;
-      }
-
-      setPerfil(perfilNormalizado);
-
-      const respuestaCategorias =
-        await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/categorias`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
+      try {
+        const respuestaPerfil =
+          await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             },
-          },
+          );
+
+        if (!respuestaPerfil.ok) {
+          localStorage.removeItem(
+            'access_token',
+          );
+
+          router.replace('/');
+          return;
+        }
+
+        const dataPerfil =
+          await respuestaPerfil.json();
+
+        const perfilNormalizado: Perfil =
+          dataPerfil.usuario &&
+          typeof dataPerfil.usuario ===
+            'object'
+            ? dataPerfil.usuario
+            : dataPerfil;
+
+        const esSolicitante =
+          perfilNormalizado.idRol === 1 ||
+          perfilNormalizado.rol?.trim() ===
+            'Solicitante';
+
+        if (!esSolicitante) {
+          router.replace('/dashboard');
+          return;
+        }
+
+        setPerfil(
+          perfilNormalizado,
         );
 
-      if (
-        respuestaCategorias.status === 401
-      ) {
-        localStorage.removeItem(
-          'access_token',
+        const respuestaCategorias =
+          await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/categorias`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            },
+          );
+
+        if (
+          respuestaCategorias.status ===
+          401
+        ) {
+          localStorage.removeItem(
+            'access_token',
+          );
+
+          router.replace('/');
+          return;
+        }
+
+        if (!respuestaCategorias.ok) {
+          setMensaje(
+            'No fue posible cargar las categorías.',
+          );
+
+          return;
+        }
+
+        const categoriasData: Categoria[] =
+          await respuestaCategorias.json();
+
+        setCategorias(
+          categoriasData.filter(
+            (categoria) =>
+              categoria.activo,
+          ),
         );
-
-        router.replace('/');
-        return;
-      }
-
-      if (!respuestaCategorias.ok) {
+      } catch {
         setMensaje(
-          'No fue posible cargar las categorías.',
+          'No fue posible conectar con el servidor.',
         );
-
-        return;
+      } finally {
+        setCargando(false);
       }
-
-      const categoriasData: Categoria[] =
-        await respuestaCategorias.json();
-
-      setCategorias(
-        categoriasData.filter(
-          (categoria) =>
-            categoria.activo,
-        ),
-      );
-    } catch {
-      setMensaje(
-        'No fue posible conectar con el servidor.',
-      );
-    } finally {
-      setCargando(false);
-    }
-  }, [router]);
+    },
+    [router],
+  );
 
   useEffect(() => {
     cargarDatos();
@@ -191,7 +207,9 @@ export default function NuevoTicketPage() {
     }
 
     const token =
-      localStorage.getItem('access_token');
+      localStorage.getItem(
+        'access_token',
+      );
 
     if (!token) {
       router.replace('/');
@@ -297,253 +315,293 @@ export default function NuevoTicketPage() {
 
   if (cargando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-slate-600">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F6F8]">
+        <p className="text-[#61605E]">
           Cargando...
         </p>
       </main>
     );
   }
 
+  if (!perfil) {
+    return null;
+  }
+
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              Gestión de Incidentes TI
-            </h1>
+    <AppShell perfil={perfil}>
+      <section className="mx-auto max-w-5xl px-6 py-8 lg:px-8">
+        <div className="mb-8">
+          <p className="mb-1 text-sm font-semibold text-[#EC2328]">
+            Registro de incidentes
+          </p>
 
-            <p className="text-sm text-slate-500">
-              Crear nuevo ticket
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold text-[#1F4697]">
+            Crear nuevo ticket
+          </h1>
 
-          <div className="flex items-center gap-4">
-            {perfil && (
-              <div className="text-right">
-                <p className="font-medium text-slate-900">
-                  {perfil.usuario}
-                </p>
-
-                <p className="text-sm text-slate-500">
-                  {perfil.rol}
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={() =>
-                router.push('/dashboard')
-              }
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Volver
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-3xl px-6 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Reportar incidente
-          </h2>
-
-          <p className="mt-1 text-slate-500">
-            Describa el problema para que
-            pueda ser atendido por el
-            Departamento de IT.
+          <p className="mt-2 text-[#61605E]">
+            Reporte un problema tecnológico para que
+            pueda ser atendido por el Departamento de IT.
           </p>
         </div>
 
-        <form
-          onSubmit={crearTicket}
-          className="rounded-xl bg-white p-7 shadow-sm"
-        >
-          <div className="mb-5">
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Título
-            </label>
+        <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+          <form
+            onSubmit={crearTicket}
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+          >
+            <div className="h-1 bg-[#EC2328]" />
 
-            <input
-              type="text"
-              value={titulo}
-              onChange={(event) =>
-                setTitulo(
-                  event.target.value,
-                )
-              }
-              maxLength={150}
-              placeholder="Ejemplo: Problema con impresora"
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500"
-            />
-          </div>
+            <div className="p-7">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-[#1F4697]">
+                  Información del incidente
+                </h2>
 
-          <div className="mb-5">
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Descripción
-            </label>
+                <p className="mt-1 text-sm text-[#61605E]">
+                  Complete la información necesaria para
+                  registrar el ticket.
+                </p>
+              </div>
 
-            <textarea
-              value={descripcion}
-              onChange={(event) =>
-                setDescripcion(
-                  event.target.value,
-                )
-              }
-              rows={5}
-              placeholder="Explique detalladamente el problema que está presentando."
-              className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500"
-            />
-          </div>
+              <div className="mb-5">
+                <label
+                  htmlFor="titulo"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Título
+                </label>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Categoría
-              </label>
+                <input
+                  id="titulo"
+                  type="text"
+                  value={titulo}
+                  onChange={(event) =>
+                    setTitulo(
+                      event.target.value,
+                    )
+                  }
+                  maxLength={150}
+                  placeholder="Ejemplo: Problema con impresora"
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
 
-              <select
-                value={idCategoria}
-                onChange={(event) =>
-                  setIdCategoria(
-                    event.target.value,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500"
-              >
-                <option value="">
-                  Seleccione una categoría
-                </option>
+              <div className="mb-5">
+                <label
+                  htmlFor="descripcion"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Descripción
+                </label>
 
-                {categorias.map(
-                  (categoria) => (
-                    <option
-                      key={
-                        categoria.idCategoria
-                      }
-                      value={
-                        categoria.idCategoria
-                      }
-                    >
-                      {categoria.nombre}
+                <textarea
+                  id="descripcion"
+                  value={descripcion}
+                  onChange={(event) =>
+                    setDescripcion(
+                      event.target.value,
+                    )
+                  }
+                  rows={5}
+                  placeholder="Explique detalladamente el problema que está presentando."
+                  className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="categoria"
+                    className="mb-2 block text-sm font-semibold text-slate-700"
+                  >
+                    Categoría
+                  </label>
+
+                  <select
+                    id="categoria"
+                    value={idCategoria}
+                    onChange={(event) =>
+                      setIdCategoria(
+                        event.target.value,
+                      )
+                    }
+                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="">
+                      Seleccione una categoría
                     </option>
-                  ),
-                )}
-              </select>
-            </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Impacto
-              </label>
+                    {categorias.map(
+                      (categoria) => (
+                        <option
+                          key={
+                            categoria.idCategoria
+                          }
+                          value={
+                            categoria.idCategoria
+                          }
+                        >
+                          {categoria.nombre}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </div>
 
-              <select
-                value={impacto}
-                onChange={(event) =>
-                  setImpacto(
-                    event.target.value,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500"
-              >
-                <option value="">
-                  Seleccione el impacto
-                </option>
+                <div>
+                  <label
+                    htmlFor="impacto"
+                    className="mb-2 block text-sm font-semibold text-slate-700"
+                  >
+                    Impacto
+                  </label>
 
-                <option value="Bajo">
-                  Bajo
-                </option>
+                  <select
+                    id="impacto"
+                    value={impacto}
+                    onChange={(event) =>
+                      setImpacto(
+                        event.target.value,
+                      )
+                    }
+                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="">
+                      Seleccione el impacto
+                    </option>
 
-                <option value="Medio">
-                  Medio
-                </option>
+                    <option value="Bajo">
+                      Bajo
+                    </option>
 
-                <option value="Alto">
-                  Alto
-                </option>
-              </select>
-            </div>
+                    <option value="Medio">
+                      Medio
+                    </option>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Urgencia
-              </label>
+                    <option value="Alto">
+                      Alto
+                    </option>
+                  </select>
+                </div>
 
-              <select
-                value={urgencia}
-                onChange={(event) =>
-                  setUrgencia(
-                    event.target.value,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500"
-              >
-                <option value="">
-                  Seleccione la urgencia
-                </option>
+                <div>
+                  <label
+                    htmlFor="urgencia"
+                    className="mb-2 block text-sm font-semibold text-slate-700"
+                  >
+                    Urgencia
+                  </label>
 
-                <option value="Baja">
-                  Baja
-                </option>
+                  <select
+                    id="urgencia"
+                    value={urgencia}
+                    onChange={(event) =>
+                      setUrgencia(
+                        event.target.value,
+                      )
+                    }
+                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="">
+                      Seleccione la urgencia
+                    </option>
 
-                <option value="Media">
-                  Media
-                </option>
+                    <option value="Baja">
+                      Baja
+                    </option>
 
-                <option value="Alta">
-                  Alta
-                </option>
-              </select>
-            </div>
+                    <option value="Media">
+                      Media
+                    </option>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Estado inicial
-              </label>
+                    <option value="Alta">
+                      Alta
+                    </option>
+                  </select>
+                </div>
 
-              <div className="rounded-lg bg-slate-100 px-4 py-3 font-medium text-slate-700">
-                Nuevo
+                <div>
+                  <p className="mb-2 block text-sm font-semibold text-slate-700">
+                    Estado inicial
+                  </p>
+
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 font-semibold text-[#1F4697]">
+                    Nuevo
+                  </div>
+                </div>
+              </div>
+
+              {mensaje && (
+                <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {mensaje}
+                </div>
+              )}
+
+              {mensajeExito && (
+                <div className="mt-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+                  {mensajeExito}
+                </div>
+              )}
+
+              <div className="mt-7 flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      '/tickets/mis-tickets',
+                    )
+                  }
+                  className="rounded-lg border border-[#1F4697] bg-white px-5 py-3 font-semibold text-[#1F4697] transition hover:bg-blue-50"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={guardando}
+                  className="rounded-lg bg-[#EC2328] px-6 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {guardando
+                    ? 'Creando...'
+                    : 'Crear ticket'}
+                </button>
               </div>
             </div>
-          </div>
+          </form>
 
-          {mensaje && (
-            <div className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-              {mensaje}
+          <div className="space-y-5">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 h-1 w-10 rounded-full bg-[#1F4697]" />
+
+              <h3 className="font-bold text-[#1F4697]">
+                Antes de enviar
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-[#61605E]">
+                Describa claramente el problema y seleccione
+                la categoría, impacto y urgencia que mejor
+                correspondan.
+              </p>
             </div>
-          )}
 
-          {mensajeExito && (
-            <div className="mt-6 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-              {mensajeExito}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 h-1 w-10 rounded-full bg-[#EC2328]" />
+
+              <h3 className="font-bold text-[#1F4697]">
+                Flujo inicial
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-[#61605E]">
+                El ticket será registrado en estado
+                <strong> Nuevo</strong>. Posteriormente un
+                Administrador o Supervisor podrá asignar
+                técnico y prioridad.
+              </p>
             </div>
-          )}
-
-          <div className="mt-7 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() =>
-                router.push('/dashboard')
-              }
-              className="rounded-lg border border-slate-300 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="submit"
-              disabled={guardando}
-              className="rounded-lg bg-slate-900 px-6 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {guardando
-                ? 'Creando...'
-                : 'Crear ticket'}
-            </button>
           </div>
-        </form>
+        </div>
       </section>
-    </main>
+    </AppShell>
   );
 }

@@ -1,7 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useState,
+} from 'react';
+
 import { useRouter } from 'next/navigation';
+
+import AppShell from '../../components/AppShell';
 
 interface Perfil {
   sub: number;
@@ -17,13 +23,12 @@ interface Ticket {
   codigo: string;
   titulo: string;
   idEstado: number;
+  idTecnico: number | null;
 
   estado?: {
     idEstado: number;
     nombre: string;
   };
-
-  idTecnico: number | null;
 }
 
 interface Indicadores {
@@ -147,7 +152,8 @@ export default function DashboardPage() {
               await respuestaTickets.json();
 
             setIndicadores({
-              total: tickets.length,
+              total:
+                tickets.length,
 
               nuevos:
                 tickets.filter(
@@ -208,18 +214,10 @@ export default function DashboardPage() {
     cargarDashboard();
   }, [router]);
 
-  function cerrarSesion() {
-    localStorage.removeItem(
-      'access_token',
-    );
-
-    router.replace('/');
-  }
-
   if (cargando) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-slate-600">
+      <main className="flex min-h-screen items-center justify-center bg-[#F5F6F8]">
+        <p className="text-[#61605E]">
           Cargando...
         </p>
       </main>
@@ -255,54 +253,28 @@ export default function DashboardPage() {
     esSupervisor;
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              Gestión de Incidentes TI
-            </h1>
-
-            <p className="text-sm text-slate-500">
-              Grupo Master
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="font-medium text-slate-900">
-                {perfil.usuario}
-              </p>
-
-              <p className="text-sm text-slate-500">
-                {perfil.rol}
-              </p>
-            </div>
-
-            <button
-              onClick={cerrarSesion}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Cerrar sesión
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-7xl px-6 py-8">
+    <AppShell perfil={perfil}>
+      <section className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Bienvenido, {perfil.usuario}
-          </h2>
+          <p className="mb-1 text-sm font-semibold text-[#EC2328]">
+            Panel principal
+          </p>
 
-          <p className="mt-1 text-slate-500">
-            Rol actual: {perfil.rol}
+          <h1 className="text-3xl font-bold text-[#1F4697]">
+            Bienvenido, {perfil.usuario}
+          </h1>
+
+          <p className="mt-2 text-[#61605E]">
+            Consulte y gestione la información
+            disponible según su rol.
           </p>
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 h-1 w-12 rounded-full bg-[#EC2328]" />
+
+            <p className="text-sm font-medium text-[#61605E]">
               Usuario
             </p>
 
@@ -311,8 +283,10 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 h-1 w-12 rounded-full bg-[#1F4697]" />
+
+            <p className="text-sm font-medium text-[#61605E]">
               Rol
             </p>
 
@@ -321,8 +295,10 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 h-1 w-12 rounded-full bg-green-500" />
+
+            <p className="text-sm font-medium text-[#61605E]">
               Estado
             </p>
 
@@ -335,93 +311,94 @@ export default function DashboardPage() {
         {esAdministrativo && (
           <div className="mt-10">
             <div className="mb-5">
-              <h3 className="text-xl font-bold text-slate-900">
+              <h2 className="text-xl font-bold text-[#1F4697]">
                 Resumen de tickets
-              </h3>
+              </h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[#61605E]">
                 Estado general de los
-                incidentes registrados.
+                incidentes registrados en el
+                sistema.
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-[#61605E]">
                   Total de tickets
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-[#1F4697]">
                   {indicadores.total}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-[#61605E]">
                   Nuevos
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-[#1F4697]">
                   {indicadores.nuevos}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-[#61605E]">
                   En revisión
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-[#1F4697]">
                   {indicadores.enRevision}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-[#61605E]">
                   En atención
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-[#EC2328]">
                   {indicadores.enAtencion}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-[#61605E]">
                   Pendientes
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-amber-600">
                   {indicadores.pendientes}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-[#61605E]">
                   Resueltos
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-green-600">
                   {indicadores.resueltos}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-[#61605E]">
                   Cerrados
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-slate-700">
                   {indicadores.cerrados}
                 </p>
               </div>
 
-              <div className="rounded-xl bg-white p-5 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-[#61605E]">
                   Sin asignar
                 </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
+                <p className="mt-2 text-3xl font-bold text-[#EC2328]">
                   {indicadores.sinAsignar}
                 </p>
               </div>
@@ -430,31 +407,40 @@ export default function DashboardPage() {
         )}
 
         <div className="mt-10">
-          <h3 className="mb-4 text-lg font-bold text-slate-900">
-            Opciones
-          </h3>
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-[#1F4697]">
+              Accesos rápidos
+            </h2>
+
+            <p className="mt-1 text-sm text-[#61605E]">
+              Opciones disponibles para su
+              perfil.
+            </p>
+          </div>
 
           <div className="flex flex-wrap gap-4">
             {esSolicitante && (
               <>
                 <button
+                  type="button"
                   onClick={() =>
                     router.push(
                       '/tickets/nuevo',
                     )
                   }
-                  className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
+                  className="rounded-lg bg-[#EC2328] px-6 py-3 font-semibold text-white transition hover:bg-red-700"
                 >
                   Crear nuevo ticket
                 </button>
 
                 <button
+                  type="button"
                   onClick={() =>
                     router.push(
                       '/tickets/mis-tickets',
                     )
                   }
-                  className="rounded-xl border border-slate-300 bg-white px-6 py-4 font-semibold text-slate-800 transition hover:bg-slate-50"
+                  className="rounded-lg border border-[#1F4697] bg-white px-6 py-3 font-semibold text-[#1F4697] transition hover:bg-blue-50"
                 >
                   Mis tickets
                 </button>
@@ -463,12 +449,13 @@ export default function DashboardPage() {
 
             {esTecnico && (
               <button
+                type="button"
                 onClick={() =>
                   router.push(
                     '/tickets/asignados',
                   )
                 }
-                className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
+                className="rounded-lg bg-[#1F4697] px-6 py-3 font-semibold text-white transition hover:bg-blue-900"
               >
                 Ver tickets asignados
               </button>
@@ -477,23 +464,25 @@ export default function DashboardPage() {
             {esAdministrativo && (
               <>
                 <button
+                  type="button"
                   onClick={() =>
                     router.push(
                       '/tickets/gestion',
                     )
                   }
-                  className="rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
+                  className="rounded-lg bg-[#1F4697] px-6 py-3 font-semibold text-white transition hover:bg-blue-900"
                 >
                   Gestionar tickets
                 </button>
 
                 <button
+                  type="button"
                   onClick={() =>
                     router.push(
                       '/tickets/todos',
                     )
                   }
-                  className="rounded-xl border border-slate-300 bg-white px-6 py-4 font-semibold text-slate-800 transition hover:bg-slate-50"
+                  className="rounded-lg border border-[#1F4697] bg-white px-6 py-3 font-semibold text-[#1F4697] transition hover:bg-blue-50"
                 >
                   Todos los tickets
                 </button>
@@ -502,12 +491,13 @@ export default function DashboardPage() {
 
             {esAdministrador && (
               <button
+                type="button"
                 onClick={() =>
                   router.push(
                     '/usuarios',
                   )
                 }
-                className="rounded-xl border border-slate-300 bg-white px-6 py-4 font-semibold text-slate-800 transition hover:bg-slate-50"
+                className="rounded-lg border border-[#EC2328] bg-white px-6 py-3 font-semibold text-[#EC2328] transition hover:bg-red-50"
               >
                 Administrar usuarios
               </button>
@@ -515,6 +505,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
