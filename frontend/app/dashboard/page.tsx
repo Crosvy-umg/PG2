@@ -101,7 +101,9 @@ export default function DashboardPage() {
             ? data.usuario
             : data;
 
-        setPerfil(perfilNormalizado);
+        setPerfil(
+          perfilNormalizado,
+        );
 
         const esSupervisor =
           perfilNormalizado.idRol === 6 ||
@@ -496,6 +498,19 @@ export default function DashboardPage() {
                   Todos los tickets
                 </button>
               </>
+            )}
+
+            {esAdministrador && (
+              <button
+                onClick={() =>
+                  router.push(
+                    '/usuarios',
+                  )
+                }
+                className="rounded-xl border border-slate-300 bg-white px-6 py-4 font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                Administrar usuarios
+              </button>
             )}
           </div>
         </div>
