@@ -18,6 +18,13 @@ export class Prioridad {
 
   @Column({
     type: 'int',
+    unique: true,
   })
   nivel: number;
+
+  @Column({
+    type: 'boolean',
+    default: true,
+  })
+  activo: boolean;
 }

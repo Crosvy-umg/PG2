@@ -13,6 +13,8 @@ import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateAtencionTicketDto } from './dto/update-atencion-ticket.dto';
 import { UpdateEstadoTicketDto } from './dto/update-estado-ticket.dto';
 
+import { Prioridad } from '../prioridades/entities/prioridad.entity';
+
 import { BitacoraService } from '../bitacora/bitacora.service';
 
 @Injectable()
@@ -20,6 +22,9 @@ export class TicketsService {
   constructor(
     @InjectRepository(Ticket)
     private readonly ticketRepository: Repository<Ticket>,
+
+    @InjectRepository(Prioridad)
+    private readonly prioridadRepository: Repository<Prioridad>,
 
     private readonly bitacoraService: BitacoraService,
   ) {}
@@ -171,6 +176,35 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException(
         'El ticket no existe',
+      );
+    }
+
+    /*
+     * Validamos que la prioridad exista.
+     */
+    const prioridad =
+      await this.prioridadRepository.findOne({
+        where: {
+          idPrioridad:
+            updateAtencionTicketDto.idPrioridad,
+        },
+      });
+
+    if (!prioridad) {
+      throw new BadRequestException(
+        'La prioridad seleccionada no existe',
+      );
+    }
+
+    /*
+     * Impedimos utilizar prioridades
+     * desactivadas aunque se intente
+     * desde Postman o directamente
+     * contra la API.
+     */
+    if (!prioridad.activo) {
+      throw new BadRequestException(
+        'La prioridad seleccionada está inactiva',
       );
     }
 

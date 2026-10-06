@@ -75,6 +75,7 @@ interface Prioridad {
   idPrioridad: number;
   nombre: string;
   nivel: number;
+  activo: boolean;
 }
 
 interface SeleccionTicket {
@@ -202,7 +203,7 @@ export default function GestionTicketsPage() {
           ),
 
           fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/prioridades`,
+            `${process.env.NEXT_PUBLIC_API_URL}/prioridades/activas`,
             {
               headers: {
                 Authorization:
@@ -256,11 +257,16 @@ export default function GestionTicketsPage() {
         );
 
         setPrioridades(
-          prioridadesData.sort(
-            (a, b) =>
-              a.nivel - b.nivel,
-          ),
-        );
+  prioridadesData
+    .filter(
+      (prioridad) =>
+        prioridad.activo,
+    )
+    .sort(
+      (a, b) =>
+        a.nivel - b.nivel,
+    ),
+);
       } catch {
         setMensaje(
           'No fue posible conectar con el servidor.',

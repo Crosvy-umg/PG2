@@ -1,10 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import {
-  usePathname,
-  useRouter,
-} from 'next/navigation';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface SidebarProps {
   rol: string;
@@ -21,7 +19,6 @@ export default function Sidebar({
   rol,
   idRol,
 }: SidebarProps) {
-  const router = useRouter();
   const pathname = usePathname();
 
   const esSolicitante =
@@ -41,8 +38,7 @@ export default function Sidebar({
     rol?.trim() === 'Administrador';
 
   const esAdministrativo =
-    esSupervisor ||
-    esAdministrador;
+    esSupervisor || esAdministrador;
 
   const opciones: OpcionMenu[] = [
     {
@@ -50,37 +46,31 @@ export default function Sidebar({
       ruta: '/dashboard',
       visible: true,
     },
-
     {
       nombre: 'Crear ticket',
       ruta: '/tickets/nuevo',
       visible: esSolicitante,
     },
-
     {
       nombre: 'Mis tickets',
       ruta: '/tickets/mis-tickets',
       visible: esSolicitante,
     },
-
     {
       nombre: 'Tickets asignados',
       ruta: '/tickets/asignados',
       visible: esTecnico,
     },
-
     {
       nombre: 'Gestionar tickets',
       ruta: '/tickets/gestion',
       visible: esAdministrativo,
     },
-
     {
       nombre: 'Todos los tickets',
       ruta: '/tickets/todos',
       visible: esAdministrativo,
     },
-
     {
       nombre: 'Usuarios',
       ruta: '/usuarios',
@@ -91,24 +81,14 @@ export default function Sidebar({
       ruta: '/categorias',
       visible: esAdministrador,
     },
+    {
+      nombre: 'Prioridades',
+      ruta: '/prioridades',
+      visible: esAdministrador,
+    },
   ];
 
   function esDetalleTicket() {
-    /*
-     * Reconoce rutas dinámicas como:
-     *
-     * /tickets/1
-     * /tickets/5
-     * /tickets/25
-     *
-     * Pero NO confunde:
-     *
-     * /tickets/nuevo
-     * /tickets/mis-tickets
-     * /tickets/asignados
-     * /tickets/gestion
-     * /tickets/todos
-     */
     return /^\/tickets\/\d+$/.test(
       pathname,
     );
@@ -117,25 +97,14 @@ export default function Sidebar({
   function estaActivo(
     ruta: string,
   ) {
-    /*
-     * Inicio
-     */
     if (ruta === '/dashboard') {
       return pathname === '/dashboard';
     }
 
-    /*
-     * Rutas normales
-     */
     if (pathname === ruta) {
       return true;
     }
 
-    /*
-     * Cuando estamos viendo el detalle
-     * de un ticket, marcamos la opción
-     * correspondiente según el rol.
-     */
     if (esDetalleTicket()) {
       if (
         esSolicitante &&
@@ -204,24 +173,17 @@ export default function Sidebar({
                 );
 
               return (
-                <button
+                <Link
                   key={opcion.ruta}
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      opcion.ruta,
-                    )
-                  }
-                  className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
+                  href={opcion.ruta}
+                  className={`block w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
                     activo
                       ? 'bg-[#1F4697] text-white'
                       : 'text-slate-700 hover:bg-slate-100 hover:text-[#1F4697]'
                   }`}
                 >
-                  {
-                    opcion.nombre
-                  }
-                </button>
+                  {opcion.nombre}
+                </Link>
               );
             })}
         </div>
