@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 interface SidebarProps {
@@ -38,7 +37,8 @@ export default function Sidebar({
     rol?.trim() === 'Administrador';
 
   const esAdministrativo =
-    esSupervisor || esAdministrador;
+    esSupervisor ||
+    esAdministrador;
 
   const opciones: OpcionMenu[] = [
     {
@@ -46,44 +46,58 @@ export default function Sidebar({
       ruta: '/dashboard',
       visible: true,
     },
+
     {
       nombre: 'Crear ticket',
       ruta: '/tickets/nuevo',
       visible: esSolicitante,
     },
+
     {
       nombre: 'Mis tickets',
       ruta: '/tickets/mis-tickets',
       visible: esSolicitante,
     },
+
     {
       nombre: 'Tickets asignados',
       ruta: '/tickets/asignados',
       visible: esTecnico,
     },
+
     {
       nombre: 'Gestionar tickets',
       ruta: '/tickets/gestion',
       visible: esAdministrativo,
     },
+
     {
       nombre: 'Todos los tickets',
       ruta: '/tickets/todos',
       visible: esAdministrativo,
     },
+
     {
       nombre: 'Usuarios',
       ruta: '/usuarios',
       visible: esAdministrador,
     },
+
     {
       nombre: 'Categorías',
       ruta: '/categorias',
       visible: esAdministrador,
     },
+
     {
       nombre: 'Prioridades',
       ruta: '/prioridades',
+      visible: esAdministrador,
+    },
+
+    {
+      nombre: 'Estados',
+      ruta: '/estados',
       visible: esAdministrador,
     },
   ];
@@ -98,7 +112,9 @@ export default function Sidebar({
     ruta: string,
   ) {
     if (ruta === '/dashboard') {
-      return pathname === '/dashboard';
+      return (
+        pathname === '/dashboard'
+      );
     }
 
     if (pathname === ruta) {
@@ -108,27 +124,36 @@ export default function Sidebar({
     if (esDetalleTicket()) {
       if (
         esSolicitante &&
-        ruta === '/tickets/mis-tickets'
+        ruta ===
+          '/tickets/mis-tickets'
       ) {
         return true;
       }
 
       if (
         esTecnico &&
-        ruta === '/tickets/asignados'
+        ruta ===
+          '/tickets/asignados'
       ) {
         return true;
       }
 
       if (
         esAdministrativo &&
-        ruta === '/tickets/todos'
+        ruta ===
+          '/tickets/todos'
       ) {
         return true;
       }
     }
 
     return false;
+  }
+
+  function navegar(
+    ruta: string,
+  ) {
+    window.location.href = ruta;
   }
 
   return (
@@ -173,17 +198,24 @@ export default function Sidebar({
                 );
 
               return (
-                <Link
+                <button
                   key={opcion.ruta}
-                  href={opcion.ruta}
-                  className={`block w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
+                  type="button"
+                  onClick={() =>
+                    navegar(
+                      opcion.ruta,
+                    )
+                  }
+                  className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
                     activo
                       ? 'bg-[#1F4697] text-white'
                       : 'text-slate-700 hover:bg-slate-100 hover:text-[#1F4697]'
                   }`}
                 >
-                  {opcion.nombre}
-                </Link>
+                  {
+                    opcion.nombre
+                  }
+                </button>
               );
             })}
         </div>
