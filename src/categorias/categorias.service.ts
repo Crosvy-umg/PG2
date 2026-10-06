@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
@@ -8,6 +9,7 @@ import { Repository } from 'typeorm';
 
 import { Categoria } from './entities/categoria.entity';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
+import { UpdateCategoriaStatusDto } from './dto/update-categoria-status.dto';
 
 @Injectable()
 export class CategoriasService {
@@ -16,7 +18,9 @@ export class CategoriasService {
     private readonly categoriaRepository: Repository<Categoria>,
   ) {}
 
-  async create(createCategoriaDto: CreateCategoriaDto) {
+  async create(
+    createCategoriaDto: CreateCategoriaDto,
+  ) {
     const categoriaExistente =
       await this.categoriaRepository.findOne({
         where: {
@@ -34,7 +38,9 @@ export class CategoriasService {
       this.categoriaRepository.create({
         nombre: createCategoriaDto.nombre,
         descripcion:
-          createCategoriaDto.descripcion ?? null,
+          createCategoriaDto.descripcion ??
+          null,
+        activo: true,
       });
 
     return this.categoriaRepository.save(
@@ -48,5 +54,41 @@ export class CategoriasService {
         nombre: 'ASC',
       },
     });
+  }
+
+  async findActivas() {
+    return this.categoriaRepository.find({
+      where: {
+        activo: true,
+      },
+      order: {
+        nombre: 'ASC',
+      },
+    });
+  }
+
+  async actualizarEstado(
+    idCategoria: number,
+    updateCategoriaStatusDto: UpdateCategoriaStatusDto,
+  ) {
+    const categoria =
+      await this.categoriaRepository.findOne({
+        where: {
+          idCategoria,
+        },
+      });
+
+    if (!categoria) {
+      throw new NotFoundException(
+        'La categoría no existe',
+      );
+    }
+
+    categoria.activo =
+      updateCategoriaStatusDto.activo;
+
+    return this.categoriaRepository.save(
+      categoria,
+    );
   }
 }

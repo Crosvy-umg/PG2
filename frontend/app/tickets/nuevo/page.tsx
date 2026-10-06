@@ -85,6 +85,10 @@ export default function NuevoTicketPage() {
       }
 
       try {
+        /*
+         * 1. Obtener perfil
+         */
+
         const respuestaPerfil =
           await fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/auth/perfil`,
@@ -129,9 +133,14 @@ export default function NuevoTicketPage() {
           perfilNormalizado,
         );
 
+        /*
+         * 2. Obtener únicamente
+         * categorías activas
+         */
+
         const respuestaCategorias =
           await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/categorias`,
+            `${process.env.NEXT_PUBLIC_API_URL}/categorias/activas`,
             {
               headers: {
                 Authorization:
@@ -154,7 +163,7 @@ export default function NuevoTicketPage() {
 
         if (!respuestaCategorias.ok) {
           setMensaje(
-            'No fue posible cargar las categorías.',
+            'No fue posible cargar las categorías activas.',
           );
 
           return;
@@ -164,10 +173,7 @@ export default function NuevoTicketPage() {
           await respuestaCategorias.json();
 
         setCategorias(
-          categoriasData.filter(
-            (categoria) =>
-              categoria.activo,
-          ),
+          categoriasData,
         );
       } catch {
         setMensaje(
@@ -234,10 +240,14 @@ export default function NuevoTicketPage() {
 
           body: JSON.stringify({
             titulo: titulo.trim(),
+
             descripcion:
               descripcion.trim(),
+
             impacto,
+
             urgencia,
+
             idCategoria:
               Number(idCategoria),
           }),
@@ -330,6 +340,9 @@ export default function NuevoTicketPage() {
   return (
     <AppShell perfil={perfil}>
       <section className="mx-auto max-w-5xl px-6 py-8 lg:px-8">
+
+        {/* ENCABEZADO */}
+
         <div className="mb-8">
           <p className="mb-1 text-sm font-semibold text-[#EC2328]">
             Registro de incidentes
@@ -346,6 +359,9 @@ export default function NuevoTicketPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+
+          {/* FORMULARIO */}
+
           <form
             onSubmit={crearTicket}
             className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
@@ -363,6 +379,8 @@ export default function NuevoTicketPage() {
                   registrar el ticket.
                 </p>
               </div>
+
+              {/* TÍTULO */}
 
               <div className="mb-5">
                 <label
@@ -387,6 +405,8 @@ export default function NuevoTicketPage() {
                 />
               </div>
 
+              {/* DESCRIPCIÓN */}
+
               <div className="mb-5">
                 <label
                   htmlFor="descripcion"
@@ -410,6 +430,9 @@ export default function NuevoTicketPage() {
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
+
+                {/* CATEGORÍA */}
+
                 <div>
                   <label
                     htmlFor="categoria"
@@ -426,10 +449,15 @@ export default function NuevoTicketPage() {
                         event.target.value,
                       )
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                    disabled={
+                      categorias.length === 0
+                    }
+                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                   >
                     <option value="">
-                      Seleccione una categoría
+                      {categorias.length === 0
+                        ? 'No hay categorías activas'
+                        : 'Seleccione una categoría'}
                     </option>
 
                     {categorias.map(
@@ -448,6 +476,8 @@ export default function NuevoTicketPage() {
                     )}
                   </select>
                 </div>
+
+                {/* IMPACTO */}
 
                 <div>
                   <label
@@ -485,6 +515,8 @@ export default function NuevoTicketPage() {
                   </select>
                 </div>
 
+                {/* URGENCIA */}
+
                 <div>
                   <label
                     htmlFor="urgencia"
@@ -521,6 +553,8 @@ export default function NuevoTicketPage() {
                   </select>
                 </div>
 
+                {/* ESTADO INICIAL */}
+
                 <div>
                   <p className="mb-2 block text-sm font-semibold text-slate-700">
                     Estado inicial
@@ -532,17 +566,23 @@ export default function NuevoTicketPage() {
                 </div>
               </div>
 
+              {/* ERROR */}
+
               {mensaje && (
                 <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                   {mensaje}
                 </div>
               )}
 
+              {/* ÉXITO */}
+
               {mensajeExito && (
                 <div className="mt-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
                   {mensajeExito}
                 </div>
               )}
+
+              {/* BOTONES */}
 
               <div className="mt-7 flex flex-wrap justify-end gap-3">
                 <button
@@ -559,7 +599,10 @@ export default function NuevoTicketPage() {
 
                 <button
                   type="submit"
-                  disabled={guardando}
+                  disabled={
+                    guardando ||
+                    categorias.length === 0
+                  }
                   className="rounded-lg bg-[#EC2328] px-6 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
                   {guardando
@@ -569,6 +612,8 @@ export default function NuevoTicketPage() {
               </div>
             </div>
           </form>
+
+          {/* INFORMACIÓN LATERAL */}
 
           <div className="space-y-5">
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

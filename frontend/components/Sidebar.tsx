@@ -86,6 +86,11 @@ export default function Sidebar({
       ruta: '/usuarios',
       visible: esAdministrador,
     },
+    {
+      nombre: 'Categorías',
+      ruta: '/categorias',
+      visible: esAdministrador,
+    },
   ];
 
   function esDetalleTicket() {
