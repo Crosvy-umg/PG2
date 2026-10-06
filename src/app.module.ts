@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+
 import {
   ConfigModule,
   ConfigService,
 } from '@nestjs/config';
+
 import {
   TypeOrmModule,
 } from '@nestjs/typeorm';
@@ -16,6 +18,7 @@ import { EstadosModule } from './estados/estados.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { ComentariosModule } from './comentarios/comentarios.module';
+import { AnaliticaModule } from './analitica/analitica.module';
 
 @Module({
   imports: [
@@ -78,6 +81,7 @@ import { ComentariosModule } from './comentarios/comentarios.module';
     TicketsModule,
     NotificacionesModule,
     ComentariosModule,
+    AnaliticaModule,
   ],
 })
 export class AppModule {}

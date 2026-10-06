@@ -486,6 +486,18 @@ export default function DashboardPage() {
                 >
                   Todos los tickets
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      '/analitica',
+                    )
+                  }
+                  className="rounded-lg border border-[#1F4697] bg-white px-6 py-3 font-semibold text-[#1F4697] transition hover:bg-blue-50"
+                >
+                  Ver analítica
+                </button>
               </>
             )}
 

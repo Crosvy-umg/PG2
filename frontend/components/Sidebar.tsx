@@ -78,6 +78,12 @@ export default function Sidebar({
     },
 
     {
+      nombre: 'Analítica',
+      ruta: '/analitica',
+      visible: esAdministrativo,
+    },
+
+    {
       nombre: 'Usuarios',
       ruta: '/usuarios',
       visible: esAdministrador,
@@ -118,6 +124,15 @@ export default function Sidebar({
     }
 
     if (pathname === ruta) {
+      return true;
+    }
+
+    if (
+      ruta === '/analitica' &&
+      pathname.startsWith(
+        '/analitica',
+      )
+    ) {
       return true;
     }
 
