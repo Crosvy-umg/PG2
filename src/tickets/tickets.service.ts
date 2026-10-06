@@ -17,6 +17,8 @@ import { Prioridad } from '../prioridades/entities/prioridad.entity';
 
 import { BitacoraService } from '../bitacora/bitacora.service';
 
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+
 @Injectable()
 export class TicketsService {
   constructor(
@@ -27,6 +29,8 @@ export class TicketsService {
     private readonly prioridadRepository: Repository<Prioridad>,
 
     private readonly bitacoraService: BitacoraService,
+
+    private readonly notificacionesService: NotificacionesService,
   ) {}
 
   async create(
@@ -41,7 +45,8 @@ export class TicketsService {
         take: 1,
       });
 
-    const ultimoTicket = ultimosTickets[0];
+    const ultimoTicket =
+      ultimosTickets[0];
 
     const siguienteNumero =
       (ultimoTicket?.idTicket ?? 0) + 1;
@@ -53,10 +58,14 @@ export class TicketsService {
     const nuevoTicket =
       this.ticketRepository.create({
         codigo,
-        titulo: createTicketDto.titulo,
-        descripcion: createTicketDto.descripcion,
-        impacto: createTicketDto.impacto,
-        urgencia: createTicketDto.urgencia,
+        titulo:
+          createTicketDto.titulo,
+        descripcion:
+          createTicketDto.descripcion,
+        impacto:
+          createTicketDto.impacto,
+        urgencia:
+          createTicketDto.urgencia,
         idSolicitante,
         idTecnico: null,
         idCategoria:
@@ -128,7 +137,8 @@ export class TicketsService {
 
     if (
       rol === 'Solicitante' &&
-      ticket.idSolicitante !== idUsuario
+      ticket.idSolicitante !==
+        idUsuario
     ) {
       throw new ForbiddenException(
         'No tiene permisos para consultar este ticket',
@@ -137,7 +147,8 @@ export class TicketsService {
 
     if (
       rol === 'Técnico' &&
-      ticket.idTecnico !== idUsuario
+      ticket.idTecnico !==
+        idUsuario
     ) {
       throw new ForbiddenException(
         'El ticket no está asignado a este técnico',
@@ -179,9 +190,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Validamos que la prioridad exista.
-     */
     const prioridad =
       await this.prioridadRepository.findOne({
         where: {
@@ -196,12 +204,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Impedimos utilizar prioridades
-     * desactivadas aunque se intente
-     * desde Postman o directamente
-     * contra la API.
-     */
     if (!prioridad.activo) {
       throw new BadRequestException(
         'La prioridad seleccionada está inactiva',
@@ -255,6 +257,21 @@ export class TicketsService {
         }.`,
       );
 
+      /*
+       * Notificación para el técnico
+       * al momento de asignarle el ticket.
+       */
+      await this.notificacionesService.crear(
+        updateAtencionTicketDto.idTecnico,
+        'Nuevo ticket asignado',
+        `Se le asignó el ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo}. Prioridad: ${
+          ticketActualizado.prioridad
+            ?.nombre ??
+          prioridad.nombre
+        }.`,
+        idTicket,
+      );
+
       return ticketActualizado;
     } catch {
       throw new BadRequestException(
@@ -295,7 +312,10 @@ export class TicketsService {
       );
     }
 
-    if (ticket.idTecnico !== idTecnico) {
+    if (
+      ticket.idTecnico !==
+      idTecnico
+    ) {
       throw new ForbiddenException(
         'El ticket no está asignado a este técnico',
       );
@@ -316,7 +336,10 @@ export class TicketsService {
       );
     }
 
-    if (estadoActual === estadoNuevo) {
+    if (
+      estadoActual ===
+      estadoNuevo
+    ) {
       throw new BadRequestException(
         'El ticket ya se encuentra en ese estado',
       );
@@ -366,22 +389,27 @@ export class TicketsService {
 
     const nombreEstadoAnterior =
       ticket.estado?.nombre ??
-      nombresEstados[estadoActual] ??
+      nombresEstados[
+        estadoActual
+      ] ??
       `ID ${estadoActual}`;
 
     if (estadoNuevo === 6) {
       await this.ticketRepository.update(
         idTicket,
         {
-          idEstado: estadoNuevo,
-          fechaCierre: new Date(),
+          idEstado:
+            estadoNuevo,
+          fechaCierre:
+            new Date(),
         },
       );
     } else {
       await this.ticketRepository.update(
         idTicket,
         {
-          idEstado: estadoNuevo,
+          idEstado:
+            estadoNuevo,
         },
       );
     }
@@ -400,15 +428,33 @@ export class TicketsService {
     }
 
     const nombreEstadoNuevo =
-      ticketActualizado.estado?.nombre ??
-      nombresEstados[estadoNuevo] ??
+      ticketActualizado.estado
+        ?.nombre ??
+      nombresEstados[
+        estadoNuevo
+      ] ??
       `ID ${estadoNuevo}`;
 
+    /*
+     * Registramos el cambio
+     * en la bitácora.
+     */
     await this.bitacoraService.registrar(
       idTicket,
       idTecnico,
       'Estado actualizado',
       `El estado cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
+    );
+
+    /*
+     * Notificamos al solicitante
+     * que el estado de su ticket cambió.
+     */
+    await this.notificacionesService.crear(
+      ticket.idSolicitante,
+      'Estado de ticket actualizado',
+      `El ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo} cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
+      idTicket,
     );
 
     return ticketActualizado;

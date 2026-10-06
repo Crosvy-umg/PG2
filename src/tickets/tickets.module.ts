@@ -9,6 +9,7 @@ import { Prioridad } from '../prioridades/entities/prioridad.entity';
 
 import { AuthModule } from '../auth/auth.module';
 import { BitacoraModule } from '../bitacora/bitacora.module';
+import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BitacoraModule } from '../bitacora/bitacora.module';
     ]),
     AuthModule,
     BitacoraModule,
+    NotificacionesModule,
   ],
   controllers: [
     TicketsController,
