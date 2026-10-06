@@ -11,29 +11,47 @@ import {
 } from '@nestjs/common';
 
 import { TicketsService } from './tickets.service';
+
 import { CreateTicketDto } from './dto/create-ticket.dto';
+
 import { UpdateAtencionTicketDto } from './dto/update-atencion-ticket.dto';
+
 import { UpdateEstadoTicketDto } from './dto/update-estado-ticket.dto';
 
+import { ReabrirTicketDto } from './dto/reabrir-ticket.dto';
+
 import { JwtAuthGuard } from '../auth/auth.guard';
+
 import { RolesGuard } from '../auth/roles.guard';
+
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('tickets')
 export class TicketsController {
   constructor(
-    private readonly ticketsService: TicketsService,
+    private readonly ticketsService:
+      TicketsService,
   ) {}
 
+  /*
+   * Crear ticket.
+   */
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
   @Roles(
     'Solicitante',
     'Administrador',
   )
   create(
-    @Body() createTicketDto: CreateTicketDto,
-    @Req() request: any,
+    @Body()
+    createTicketDto:
+      CreateTicketDto,
+
+    @Req()
+    request: any,
   ) {
     return this.ticketsService.create(
       createTicketDto,
@@ -41,29 +59,49 @@ export class TicketsController {
     );
   }
 
+  /*
+   * Tickets creados por
+   * el solicitante autenticado.
+   */
   @Get('mis-tickets')
   @UseGuards(JwtAuthGuard)
   findMyTickets(
-    @Req() request: any,
+    @Req()
+    request: any,
   ) {
     return this.ticketsService.findBySolicitante(
       request.user.sub,
     );
   }
 
+  /*
+   * Tickets asignados al
+   * técnico autenticado.
+   */
   @Get('asignados')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
   @Roles('Técnico')
   findAssignedTickets(
-    @Req() request: any,
+    @Req()
+    request: any,
   ) {
     return this.ticketsService.findByTecnico(
       request.user.sub,
     );
   }
 
+  /*
+   * Consultar bitácora
+   * de un ticket.
+   */
   @Get(':id/bitacora')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
   @Roles(
     'Solicitante',
     'Técnico',
@@ -71,7 +109,10 @@ export class TicketsController {
     'Administrador',
   )
   findBitacora(
-    @Param('id', ParseIntPipe)
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
     idTicket: number,
 
     @Req()
@@ -84,8 +125,15 @@ export class TicketsController {
     );
   }
 
+  /*
+   * Consultar detalle
+   * de un ticket.
+   */
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
   @Roles(
     'Solicitante',
     'Técnico',
@@ -93,7 +141,10 @@ export class TicketsController {
     'Administrador',
   )
   findOne(
-    @Param('id', ParseIntPipe)
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
     idTicket: number,
 
     @Req()
@@ -106,8 +157,14 @@ export class TicketsController {
     );
   }
 
+  /*
+   * Listar todos los tickets.
+   */
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
   @Roles(
     'Técnico',
     'Supervisor',
@@ -117,15 +174,25 @@ export class TicketsController {
     return this.ticketsService.findAll();
   }
 
+  /*
+   * Asignar técnico,
+   * prioridad y estado.
+   */
   @Patch(':id/atencion')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
   @Roles(
     'Técnico',
     'Supervisor',
     'Administrador',
   )
   gestionarAtencion(
-    @Param('id', ParseIntPipe)
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
     idTicket: number,
 
     @Body()
@@ -142,11 +209,26 @@ export class TicketsController {
     );
   }
 
+  /*
+   * Cambio de estado realizado
+   * por el técnico asignado.
+   *
+   * En atención -> Pendiente
+   * En atención -> Resuelto
+   * Pendiente -> En atención
+   * Pendiente -> Resuelto
+   */
   @Patch(':id/estado')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
   @Roles('Técnico')
   actualizarEstado(
-    @Param('id', ParseIntPipe)
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
     idTicket: number,
 
     @Body()
@@ -160,6 +242,70 @@ export class TicketsController {
       idTicket,
       request.user.sub,
       updateEstadoTicketDto,
+    );
+  }
+
+  /*
+   * El solicitante confirma
+   * que la solución funcionó.
+   *
+   * Resuelto -> Cerrado
+   */
+  @Patch(
+    ':id/confirmar-resolucion',
+  )
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles('Solicitante')
+  confirmarResolucion(
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
+    idTicket: number,
+
+    @Req()
+    request: any,
+  ) {
+    return this.ticketsService.confirmarResolucion(
+      idTicket,
+      request.user.sub,
+    );
+  }
+
+  /*
+   * El solicitante indica que
+   * la solución no resolvió
+   * el problema.
+   *
+   * Resuelto -> En atención
+   */
+  @Patch(':id/reabrir')
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles('Solicitante')
+  reabrirTicket(
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
+    idTicket: number,
+
+    @Body()
+    reabrirTicketDto:
+      ReabrirTicketDto,
+
+    @Req()
+    request: any,
+  ) {
+    return this.ticketsService.reabrirTicket(
+      idTicket,
+      request.user.sub,
+      reabrirTicketDto,
     );
   }
 }

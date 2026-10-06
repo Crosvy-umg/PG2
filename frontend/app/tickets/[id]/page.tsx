@@ -27,9 +27,13 @@ interface Ticket {
   descripcion: string;
   impacto: string;
   urgencia: string;
+
   fechaCreacion: string;
   fechaActualizacion: string;
   fechaCierre: string | null;
+
+  resolucion: string | null;
+  fechaResolucion: string | null;
 
   solicitante: {
     id: number;
@@ -126,6 +130,11 @@ export default function DetalleTicketPage() {
     setEnviandoComentario,
   ] = useState(false);
 
+  const [
+    procesandoConfirmacion,
+    setProcesandoConfirmacion,
+  ] = useState(false);
+
   const [mensaje, setMensaje] =
     useState('');
 
@@ -150,6 +159,21 @@ export default function DetalleTicketPage() {
   const [
     estadoSeleccionado,
     setEstadoSeleccionado,
+  ] = useState('');
+
+  const [
+    resolucionTecnica,
+    setResolucionTecnica,
+  ] = useState('');
+
+  const [
+    mostrarReapertura,
+    setMostrarReapertura,
+  ] = useState(false);
+
+  const [
+    motivoReapertura,
+    setMotivoReapertura,
   ] = useState('');
 
   function rutaListadoPorRol(
@@ -390,13 +414,16 @@ export default function DetalleTicketPage() {
           },
         ];
 
+      /*
+       * Un ticket Resuelto ya no puede
+       * ser cerrado directamente por
+       * el técnico.
+       *
+       * El solicitante debe confirmar
+       * la solución.
+       */
       case 5:
-        return [
-          {
-            idEstado: 6,
-            nombre: 'Cerrado',
-          },
-        ];
+        return [];
 
       default:
         return [];
@@ -411,6 +438,25 @@ export default function DetalleTicketPage() {
     if (!estadoSeleccionado) {
       setMensaje(
         'Seleccione el nuevo estado del ticket.',
+      );
+
+      return;
+    }
+
+    const idEstadoNuevo =
+      Number(estadoSeleccionado);
+
+    /*
+     * Para marcar como Resuelto,
+     * el técnico debe explicar
+     * qué solución aplicó.
+     */
+    if (
+      idEstadoNuevo === 5 &&
+      !resolucionTecnica.trim()
+    ) {
+      setMensaje(
+        'Escriba la solución aplicada antes de marcar el ticket como Resuelto.',
       );
 
       return;
@@ -431,6 +477,18 @@ export default function DetalleTicketPage() {
     setMensajeExito('');
 
     try {
+      const body: {
+        idEstado: number;
+        resolucion?: string;
+      } = {
+        idEstado: idEstadoNuevo,
+      };
+
+      if (idEstadoNuevo === 5) {
+        body.resolucion =
+          resolucionTecnica.trim();
+      }
+
       const respuesta = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/estado`,
         {
@@ -444,11 +502,7 @@ export default function DetalleTicketPage() {
               `Bearer ${token}`,
           },
 
-          body: JSON.stringify({
-            idEstado: Number(
-              estadoSeleccionado,
-            ),
-          }),
+          body: JSON.stringify(body),
         },
       );
 
@@ -494,11 +548,18 @@ export default function DetalleTicketPage() {
         return;
       }
 
-      setMensajeExito(
-        'Estado actualizado correctamente.',
-      );
+      if (idEstadoNuevo === 5) {
+        setMensajeExito(
+          'El ticket fue marcado como Resuelto. Ahora debe esperar la confirmación del solicitante.',
+        );
+      } else {
+        setMensajeExito(
+          'Estado actualizado correctamente.',
+        );
+      }
 
       setEstadoSeleccionado('');
+      setResolucionTecnica('');
 
       await cargarInformacion(false);
     } catch {
@@ -507,6 +568,198 @@ export default function DetalleTicketPage() {
       );
     } finally {
       setActualizando(false);
+    }
+  }
+
+  async function confirmarResolucion() {
+    const token =
+      localStorage.getItem(
+        'access_token',
+      );
+
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    setProcesandoConfirmacion(true);
+    setMensaje('');
+    setMensajeExito('');
+
+    try {
+      const respuesta = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/confirmar-resolucion`,
+        {
+          method: 'PATCH',
+
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (respuesta.status === 401) {
+        localStorage.removeItem(
+          'access_token',
+        );
+
+        router.replace('/');
+        return;
+      }
+
+      if (respuesta.status === 403) {
+        setMensaje(
+          'No tiene permisos para confirmar la resolución de este ticket.',
+        );
+
+        return;
+      }
+
+      if (!respuesta.ok) {
+        const errorData =
+          await respuesta
+            .json()
+            .catch(() => null);
+
+        if (errorData?.message) {
+          setMensaje(
+            Array.isArray(
+              errorData.message,
+            )
+              ? errorData.message.join(
+                  ', ',
+                )
+              : errorData.message,
+          );
+        } else {
+          setMensaje(
+            'No fue posible confirmar la resolución.',
+          );
+        }
+
+        return;
+      }
+
+      setMensajeExito(
+        'Solución confirmada. El ticket fue cerrado correctamente.',
+      );
+
+      setMostrarReapertura(false);
+      setMotivoReapertura('');
+
+      await cargarInformacion(false);
+    } catch {
+      setMensaje(
+        'No fue posible conectar con el servidor.',
+      );
+    } finally {
+      setProcesandoConfirmacion(false);
+    }
+  }
+
+  async function reabrirTicket() {
+    const motivoLimpio =
+      motivoReapertura.trim();
+
+    if (!motivoLimpio) {
+      setMensaje(
+        'Indique por qué el problema continúa antes de reabrir el ticket.',
+      );
+
+      return;
+    }
+
+    const token =
+      localStorage.getItem(
+        'access_token',
+      );
+
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    setProcesandoConfirmacion(true);
+    setMensaje('');
+    setMensajeExito('');
+
+    try {
+      const respuesta = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/reabrir`,
+        {
+          method: 'PATCH',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            motivo: motivoLimpio,
+          }),
+        },
+      );
+
+      if (respuesta.status === 401) {
+        localStorage.removeItem(
+          'access_token',
+        );
+
+        router.replace('/');
+        return;
+      }
+
+      if (respuesta.status === 403) {
+        setMensaje(
+          'No tiene permisos para reabrir este ticket.',
+        );
+
+        return;
+      }
+
+      if (!respuesta.ok) {
+        const errorData =
+          await respuesta
+            .json()
+            .catch(() => null);
+
+        if (errorData?.message) {
+          setMensaje(
+            Array.isArray(
+              errorData.message,
+            )
+              ? errorData.message.join(
+                  ', ',
+                )
+              : errorData.message,
+          );
+        } else {
+          setMensaje(
+            'No fue posible reabrir el ticket.',
+          );
+        }
+
+        return;
+      }
+
+      setMensajeExito(
+        'El ticket fue reabierto y regresó a En atención.',
+      );
+
+      setMostrarReapertura(false);
+      setMotivoReapertura('');
+
+      await cargarInformacion(false);
+    } catch {
+      setMensaje(
+        'No fue posible conectar con el servidor.',
+      );
+    } finally {
+      setProcesandoConfirmacion(false);
     }
   }
 
@@ -710,12 +963,20 @@ export default function DetalleTicketPage() {
     perfil.rol?.trim() ===
       'Técnico';
 
+  const esSolicitante =
+    perfil.idRol === 1 ||
+    perfil.rol?.trim() ===
+      'Solicitante';
+
   const estadosPermitidos =
     esTecnico
       ? obtenerEstadosPermitidos(
           ticket.estado.idEstado,
         )
       : [];
+
+  const seleccionaResuelto =
+    Number(estadoSeleccionado) === 5;
 
   return (
     <AppShell perfil={perfil}>
@@ -850,6 +1111,50 @@ export default function DetalleTicketPage() {
                 </div>
               </div>
             </div>
+
+            {/* SOLUCIÓN */}
+            {ticket.resolucion && (
+              <div className="overflow-hidden rounded-xl border border-green-200 bg-white shadow-sm">
+                <div className="h-1 bg-green-500" />
+
+                <div className="p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-green-700">
+                        Solución técnica
+                      </p>
+
+                      <h2 className="mt-1 text-xl font-bold text-[#1F4697]">
+                        Solución propuesta
+                      </h2>
+                    </div>
+
+                    {ticket.fechaResolucion && (
+                      <p className="text-xs text-slate-400">
+                        {formatearFecha(
+                          ticket.fechaResolucion,
+                        )}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-4 rounded-lg bg-green-50 px-4 py-4">
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                      {ticket.resolucion}
+                    </p>
+                  </div>
+
+                  {ticket.estado.idEstado ===
+                    5 && (
+                    <p className="mt-4 text-sm leading-6 text-slate-600">
+                      El ticket se encuentra
+                      pendiente de confirmación por
+                      parte del solicitante.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* BITÁCORA */}
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -1138,6 +1443,20 @@ export default function DetalleTicketPage() {
                   </p>
                 </div>
 
+                {ticket.fechaResolucion && (
+                  <div>
+                    <p className="text-xs text-[#61605E]">
+                      Resolución
+                    </p>
+
+                    <p className="mt-1 font-semibold text-slate-900">
+                      {formatearFecha(
+                        ticket.fechaResolucion,
+                      )}
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <p className="text-xs text-[#61605E]">
                     Cierre
@@ -1176,6 +1495,7 @@ export default function DetalleTicketPage() {
                 </span>
               </div>
 
+              {/* GESTIÓN DEL TÉCNICO */}
               {esTecnico &&
               estadosPermitidos.length > 0 ? (
                 <>
@@ -1192,9 +1512,20 @@ export default function DetalleTicketPage() {
                       estadoSeleccionado
                     }
                     onChange={(event) => {
+                      const valor =
+                        event.target.value;
+
                       setEstadoSeleccionado(
-                        event.target.value,
+                        valor,
                       );
+
+                      if (
+                        Number(valor) !== 5
+                      ) {
+                        setResolucionTecnica(
+                          '',
+                        );
+                      }
 
                       setMensaje('');
                       setMensajeExito('');
@@ -1221,6 +1552,42 @@ export default function DetalleTicketPage() {
                     )}
                   </select>
 
+                  {seleccionaResuelto && (
+                    <div className="mt-4">
+                      <label
+                        htmlFor="resolucion"
+                        className="mb-2 block text-sm font-semibold text-slate-700"
+                      >
+                        Solución aplicada
+                      </label>
+
+                      <textarea
+                        id="resolucion"
+                        rows={5}
+                        value={
+                          resolucionTecnica
+                        }
+                        onChange={(event) => {
+                          setResolucionTecnica(
+                            event.target.value,
+                          );
+
+                          setMensaje('');
+                          setMensajeExito('');
+                        }}
+                        placeholder="Describa qué acciones se realizaron para resolver el incidente..."
+                        className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                      />
+
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Esta información será
+                        presentada al solicitante
+                        para que confirme si el
+                        problema fue solucionado.
+                      </p>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={
@@ -1228,21 +1595,176 @@ export default function DetalleTicketPage() {
                     }
                     disabled={
                       actualizando ||
-                      !estadoSeleccionado
+                      !estadoSeleccionado ||
+                      (
+                        seleccionaResuelto &&
+                        !resolucionTecnica.trim()
+                      )
                     }
                     className="mt-4 w-full rounded-lg bg-[#1F4697] px-4 py-3 font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-400"
                   >
                     {actualizando
                       ? 'Actualizando...'
-                      : 'Actualizar estado'}
+                      : seleccionaResuelto
+                        ? 'Registrar solución'
+                        : 'Actualizar estado'}
                   </button>
                 </>
+              ) : esSolicitante &&
+                ticket.estado.idEstado ===
+                  5 ? (
+                /*
+                 * CONFIRMACIÓN DEL
+                 * SOLICITANTE
+                 */
+                <div className="mt-6">
+                  <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                    <p className="text-sm font-bold text-green-800">
+                      Solución pendiente de confirmación
+                    </p>
+
+                    <p className="mt-2 text-sm leading-6 text-slate-700">
+                      El técnico indicó que el
+                      incidente fue solucionado.
+                      Revise la solución propuesta
+                      y confirme si el servicio
+                      funciona correctamente.
+                    </p>
+                  </div>
+
+                  <p className="mt-5 text-sm font-semibold text-slate-800">
+                    ¿El problema fue solucionado?
+                  </p>
+
+                  <div className="mt-3 grid gap-3">
+                    <button
+                      type="button"
+                      onClick={
+                        confirmarResolucion
+                      }
+                      disabled={
+                        procesandoConfirmacion
+                      }
+                      className="w-full rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {procesandoConfirmacion
+                        ? 'Procesando...'
+                        : 'Sí, confirmar solución'}
+                    </button>
+
+                    {!mostrarReapertura && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMostrarReapertura(
+                            true,
+                          );
+
+                          setMensaje('');
+                          setMensajeExito('');
+                        }}
+                        disabled={
+                          procesandoConfirmacion
+                        }
+                        className="w-full rounded-lg border border-[#EC2328] bg-white px-4 py-3 text-sm font-semibold text-[#EC2328] transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                      >
+                        El problema continúa
+                      </button>
+                    )}
+                  </div>
+
+                  {mostrarReapertura && (
+                    <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
+                      <label
+                        htmlFor="motivo-reapertura"
+                        className="block text-sm font-semibold text-slate-800"
+                      >
+                        Motivo de reapertura
+                      </label>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
+                        Explique qué problema
+                        continúa presentándose.
+                        Esta información será
+                        enviada al técnico.
+                      </p>
+
+                      <textarea
+                        id="motivo-reapertura"
+                        rows={5}
+                        value={
+                          motivoReapertura
+                        }
+                        onChange={(event) => {
+                          setMotivoReapertura(
+                            event.target.value,
+                          );
+
+                          setMensaje('');
+                        }}
+                        placeholder="Ejemplo: El problema continúa al intentar ingresar nuevamente al sistema..."
+                        className="mt-3 w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#EC2328] focus:ring-2 focus:ring-red-100"
+                      />
+
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMostrarReapertura(
+                              false,
+                            );
+
+                            setMotivoReapertura(
+                              '',
+                            );
+
+                            setMensaje('');
+                          }}
+                          disabled={
+                            procesandoConfirmacion
+                          }
+                          className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed"
+                        >
+                          Cancelar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={
+                            reabrirTicket
+                          }
+                          disabled={
+                            procesandoConfirmacion ||
+                            !motivoReapertura.trim()
+                          }
+                          className="flex-1 rounded-lg bg-[#EC2328] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {procesandoConfirmacion
+                            ? 'Procesando...'
+                            : 'Reabrir ticket'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : esTecnico ? (
                 <p className="mt-5 text-sm leading-6 text-[#61605E]">
                   {ticket.estado
                     .idEstado === 6
                     ? 'El ticket se encuentra cerrado y ya no puede cambiar de estado.'
-                    : 'No hay cambios de estado disponibles.'}
+                    : ticket.estado
+                          .idEstado === 5
+                      ? 'El ticket se encuentra Resuelto y está pendiente de confirmación por parte del solicitante.'
+                      : 'No hay cambios de estado disponibles.'}
+                </p>
+              ) : esSolicitante &&
+                ticket.estado.idEstado ===
+                  6 ? (
+                <p className="mt-5 text-sm leading-6 text-[#61605E]">
+                  El ticket se encuentra
+                  cerrado. La solución fue
+                  confirmada y el proceso de
+                  atención ha finalizado.
                 </p>
               ) : (
                 <p className="mt-5 text-sm leading-6 text-[#61605E]">
@@ -1254,13 +1776,13 @@ export default function DetalleTicketPage() {
               )}
 
               {mensajeExito && (
-                <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm leading-6 text-green-700">
                   {mensajeExito}
                 </div>
               )}
 
               {mensaje && (
-                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700">
                   {mensaje}
                 </div>
               )}

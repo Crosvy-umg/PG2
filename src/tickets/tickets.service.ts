@@ -13,9 +13,14 @@ import {
 } from 'typeorm';
 
 import { Ticket } from './entities/ticket.entity';
+
 import { CreateTicketDto } from './dto/create-ticket.dto';
+
 import { UpdateAtencionTicketDto } from './dto/update-atencion-ticket.dto';
+
 import { UpdateEstadoTicketDto } from './dto/update-estado-ticket.dto';
+
+import { ReabrirTicketDto } from './dto/reabrir-ticket.dto';
 
 import { Prioridad } from '../prioridades/entities/prioridad.entity';
 
@@ -97,6 +102,10 @@ export class TicketsService {
         idEstado: 1,
 
         fechaCierre: null,
+
+        resolucion: null,
+
+        fechaResolucion: null,
       });
 
     let ticketGuardado: Ticket;
@@ -381,6 +390,20 @@ export class TicketsService {
     });
   }
 
+  /*
+   * Cambio de estado realizado
+   * por el técnico asignado.
+   *
+   * El técnico puede:
+   *
+   * En atención -> Pendiente
+   * En atención -> Resuelto
+   * Pendiente -> En atención
+   * Pendiente -> Resuelto
+   *
+   * El técnico ya NO puede
+   * cerrar directamente el ticket.
+   */
   async actualizarEstado(
     idTicket: number,
 
@@ -443,6 +466,29 @@ export class TicketsService {
       );
     }
 
+    /*
+     * El cierre ya no corresponde
+     * directamente al técnico.
+     *
+     * El solicitante debe confirmar
+     * la solución cuando el ticket
+     * esté en Resuelto.
+     */
+    if (
+      estadoNuevo === 6
+    ) {
+      throw new BadRequestException(
+        'El cierre del ticket debe ser confirmado por el solicitante',
+      );
+    }
+
+    /*
+     * Transiciones disponibles
+     * para el técnico.
+     *
+     * Estado 5 (Resuelto) no posee
+     * transiciones desde este método.
+     */
     const transicionesPermitidas: Record<
       number,
       number[]
@@ -455,10 +501,6 @@ export class TicketsService {
       4: [
         3,
         5,
-      ],
-
-      5: [
-        6,
       ],
     };
 
@@ -475,6 +517,28 @@ export class TicketsService {
       throw new BadRequestException(
         'La transición de estado solicitada no está permitida',
       );
+    }
+
+    /*
+     * Si el técnico marca el ticket
+     * como Resuelto, debe registrar
+     * obligatoriamente la solución.
+     */
+    let resolucionLimpia:
+      string | null = null;
+
+    if (
+      estadoNuevo === 5
+    ) {
+      resolucionLimpia =
+        updateEstadoTicketDto.resolucion
+          ?.trim() ?? '';
+
+      if (!resolucionLimpia) {
+        throw new BadRequestException(
+          'Debe registrar la solución antes de marcar el ticket como Resuelto',
+        );
+      }
     }
 
     const nombresEstados: Record<
@@ -496,17 +560,28 @@ export class TicketsService {
       ] ??
       `ID ${estadoActual}`;
 
+    /*
+     * Si pasa a Resuelto:
+     *
+     * - Guardamos la solución.
+     * - Guardamos la fecha de resolución.
+     * - Todavía NO guardamos fecha de cierre.
+     */
     if (
-      estadoNuevo === 6
+      estadoNuevo === 5
     ) {
       await this.ticketRepository.update(
         idTicket,
         {
-          idEstado:
-            estadoNuevo,
+          idEstado: 5,
 
-          fechaCierre:
+          resolucion:
+            resolucionLimpia,
+
+          fechaResolucion:
             new Date(),
+
+          fechaCierre: null,
         },
       );
     } else {
@@ -543,28 +618,316 @@ export class TicketsService {
     /*
      * Bitácora.
      */
-    await this.bitacoraService.registrar(
-      idTicket,
+    if (
+      estadoNuevo === 5
+    ) {
+      await this.bitacoraService.registrar(
+        idTicket,
 
-      idTecnico,
+        idTecnico,
 
-      'Estado actualizado',
+        'Ticket resuelto',
 
-      `El estado cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
-    );
+        `El estado cambió de ${nombreEstadoAnterior} a Resuelto. Solución registrada: ${resolucionLimpia}.`,
+      );
+    } else {
+      await this.bitacoraService.registrar(
+        idTicket,
+
+        idTecnico,
+
+        'Estado actualizado',
+
+        `El estado cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
+      );
+    }
 
     /*
      * Notificación al solicitante.
+     *
+     * Cuando llegue a Resuelto,
+     * solicitamos su confirmación.
      */
-    await this.notificacionesService.crear(
-      ticket.idSolicitante,
+    if (
+      estadoNuevo === 5
+    ) {
+      await this.notificacionesService.crear(
+        ticket.idSolicitante,
 
-      'Estado de ticket actualizado',
+        'Solución pendiente de confirmación',
 
-      `El ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo} cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
+        `El ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo} fue marcado como Resuelto. Solución: ${resolucionLimpia}. Revise el ticket para confirmar si el problema fue solucionado.`,
 
+        idTicket,
+      );
+    } else {
+      await this.notificacionesService.crear(
+        ticket.idSolicitante,
+
+        'Estado de ticket actualizado',
+
+        `El ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo} cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
+
+        idTicket,
+      );
+    }
+
+    return ticketActualizado;
+  }
+
+  /*
+   * El solicitante confirma que
+   * la solución funcionó.
+   *
+   * Resuelto -> Cerrado
+   */
+  async confirmarResolucion(
+    idTicket: number,
+    idSolicitante: number,
+  ) {
+    const ticket =
+      await this.ticketRepository.findOne({
+        where: {
+          idTicket,
+        },
+      });
+
+    if (!ticket) {
+      throw new NotFoundException(
+        'El ticket no existe',
+      );
+    }
+
+    /*
+     * Solo el solicitante dueño
+     * del ticket puede confirmar.
+     */
+    if (
+      ticket.idSolicitante !==
+      idSolicitante
+    ) {
+      throw new ForbiddenException(
+        'No tiene permisos para confirmar la solución de este ticket',
+      );
+    }
+
+    /*
+     * Solo puede confirmarse cuando
+     * se encuentra en Resuelto.
+     */
+    if (
+      ticket.idEstado !== 5
+    ) {
+      throw new BadRequestException(
+        'El ticket debe encontrarse en estado Resuelto para confirmar la solución',
+      );
+    }
+
+    if (
+      !ticket.resolucion?.trim()
+    ) {
+      throw new BadRequestException(
+        'El ticket no tiene una solución registrada',
+      );
+    }
+
+    /*
+     * Confirmación:
+     *
+     * Resuelto -> Cerrado
+     */
+    await this.ticketRepository.update(
       idTicket,
+      {
+        idEstado: 6,
+
+        fechaCierre:
+          new Date(),
+      },
     );
+
+    const ticketActualizado =
+      await this.ticketRepository.findOne({
+        where: {
+          idTicket,
+        },
+      });
+
+    if (!ticketActualizado) {
+      throw new NotFoundException(
+        'No fue posible recuperar el ticket actualizado',
+      );
+    }
+
+    /*
+     * Bitácora.
+     */
+    await this.bitacoraService.registrar(
+      idTicket,
+
+      idSolicitante,
+
+      'Solución confirmada',
+
+      'El solicitante confirmó que la solución fue satisfactoria. El ticket pasó de Resuelto a Cerrado.',
+    );
+
+    /*
+     * Notificamos al técnico
+     * responsable.
+     */
+    if (
+      ticket.idTecnico
+    ) {
+      await this.notificacionesService.crear(
+        ticket.idTecnico,
+
+        'Ticket cerrado por el solicitante',
+
+        `El solicitante confirmó la solución del ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo}. El ticket fue cerrado.`,
+
+        idTicket,
+      );
+    }
+
+    return ticketActualizado;
+  }
+
+  /*
+   * El solicitante indica que
+   * la solución NO resolvió
+   * el incidente.
+   *
+   * Resuelto -> En atención
+   */
+  async reabrirTicket(
+    idTicket: number,
+
+    idSolicitante: number,
+
+    reabrirTicketDto:
+      ReabrirTicketDto,
+  ) {
+    const ticket =
+      await this.ticketRepository.findOne({
+        where: {
+          idTicket,
+        },
+      });
+
+    if (!ticket) {
+      throw new NotFoundException(
+        'El ticket no existe',
+      );
+    }
+
+    /*
+     * Solo el solicitante dueño
+     * del ticket puede rechazar
+     * la solución.
+     */
+    if (
+      ticket.idSolicitante !==
+      idSolicitante
+    ) {
+      throw new ForbiddenException(
+        'No tiene permisos para reabrir este ticket',
+      );
+    }
+
+    /*
+     * Solo un ticket Resuelto
+     * puede regresar a atención.
+     */
+    if (
+      ticket.idEstado !== 5
+    ) {
+      throw new BadRequestException(
+        'Solo un ticket en estado Resuelto puede regresar a atención',
+      );
+    }
+
+    const motivo =
+      reabrirTicketDto.motivo
+        .trim();
+
+    if (!motivo) {
+      throw new BadRequestException(
+        'Debe indicar el motivo por el cual el problema continúa',
+      );
+    }
+
+    /*
+     * Guardamos la solución anterior
+     * para registrarla en bitácora
+     * antes de limpiar los campos.
+     */
+    const resolucionAnterior =
+      ticket.resolucion?.trim() ??
+      'Sin solución registrada';
+
+    /*
+     * El ticket regresa a atención.
+     *
+     * Limpiamos la resolución actual
+     * para que el técnico deba registrar
+     * una nueva cuando vuelva a resolverlo.
+     */
+    await this.ticketRepository.update(
+      idTicket,
+      {
+        idEstado: 3,
+
+        resolucion: null,
+
+        fechaResolucion: null,
+
+        fechaCierre: null,
+      },
+    );
+
+    const ticketActualizado =
+      await this.ticketRepository.findOne({
+        where: {
+          idTicket,
+        },
+      });
+
+    if (!ticketActualizado) {
+      throw new NotFoundException(
+        'No fue posible recuperar el ticket actualizado',
+      );
+    }
+
+    /*
+     * Bitácora.
+     */
+    await this.bitacoraService.registrar(
+      idTicket,
+
+      idSolicitante,
+
+      'Solución no confirmada',
+
+      `El solicitante indicó que el problema continúa. Motivo: ${motivo}. Solución propuesta anteriormente: ${resolucionAnterior}. El ticket regresó de Resuelto a En atención.`,
+    );
+
+    /*
+     * Notificamos al técnico.
+     */
+    if (
+      ticket.idTecnico
+    ) {
+      await this.notificacionesService.crear(
+        ticket.idTecnico,
+
+        'El ticket requiere nueva atención',
+
+        `El solicitante indicó que el problema del ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo} continúa. Motivo: ${motivo}. El ticket regresó a En atención.`,
+
+        idTicket,
+      );
+    }
 
     return ticketActualizado;
   }

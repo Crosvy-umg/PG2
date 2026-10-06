@@ -61,6 +61,18 @@ export class Ticket {
   fechaCierre: Date | null;
 
   @Column({
+    type: 'text',
+    nullable: true,
+  })
+  resolucion: string | null;
+
+  @Column({
+    type: 'datetime',
+    nullable: true,
+  })
+  fechaResolucion: Date | null;
+
+  @Column({
     type: 'int',
   })
   idSolicitante: number;
