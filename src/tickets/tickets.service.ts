@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+
+import {
+  In,
+  Repository,
+} from 'typeorm';
 
 import { Ticket } from './entities/ticket.entity';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -14,6 +18,8 @@ import { UpdateAtencionTicketDto } from './dto/update-atencion-ticket.dto';
 import { UpdateEstadoTicketDto } from './dto/update-estado-ticket.dto';
 
 import { Prioridad } from '../prioridades/entities/prioridad.entity';
+
+import { User } from '../users/entities/user.entity';
 
 import { BitacoraService } from '../bitacora/bitacora.service';
 
@@ -23,14 +29,22 @@ import { NotificacionesService } from '../notificaciones/notificaciones.service'
 export class TicketsService {
   constructor(
     @InjectRepository(Ticket)
-    private readonly ticketRepository: Repository<Ticket>,
+    private readonly ticketRepository:
+      Repository<Ticket>,
 
     @InjectRepository(Prioridad)
-    private readonly prioridadRepository: Repository<Prioridad>,
+    private readonly prioridadRepository:
+      Repository<Prioridad>,
 
-    private readonly bitacoraService: BitacoraService,
+    @InjectRepository(User)
+    private readonly userRepository:
+      Repository<User>,
 
-    private readonly notificacionesService: NotificacionesService,
+    private readonly bitacoraService:
+      BitacoraService,
+
+    private readonly notificacionesService:
+      NotificacionesService,
   ) {}
 
   async create(
@@ -58,42 +72,100 @@ export class TicketsService {
     const nuevoTicket =
       this.ticketRepository.create({
         codigo,
+
         titulo:
           createTicketDto.titulo,
+
         descripcion:
           createTicketDto.descripcion,
+
         impacto:
           createTicketDto.impacto,
+
         urgencia:
           createTicketDto.urgencia,
+
         idSolicitante,
+
         idTecnico: null,
+
         idCategoria:
           createTicketDto.idCategoria,
+
         idPrioridad: null,
+
         idEstado: 1,
+
         fechaCierre: null,
       });
 
+    let ticketGuardado: Ticket;
+
+    /*
+     * Primero guardamos el ticket.
+     */
     try {
-      const ticketGuardado =
+      ticketGuardado =
         await this.ticketRepository.save(
           nuevoTicket,
         );
-
-      await this.bitacoraService.registrar(
-        ticketGuardado.idTicket,
-        idSolicitante,
-        'Ticket creado',
-        `Se creó el ticket ${ticketGuardado.codigo} en estado Nuevo.`,
-      );
-
-      return ticketGuardado;
     } catch {
       throw new BadRequestException(
         'No fue posible registrar el ticket. Verifique los datos relacionados.',
       );
     }
+
+    /*
+     * Registramos la creación
+     * en la bitácora.
+     */
+    await this.bitacoraService.registrar(
+      ticketGuardado.idTicket,
+      idSolicitante,
+      'Ticket creado',
+      `Se creó el ticket ${ticketGuardado.codigo} en estado Nuevo.`,
+    );
+
+    /*
+     * Buscamos usuarios activos
+     * con los roles:
+     *
+     * 6 = Supervisor
+     * 7 = Administrador
+     */
+    const usuariosAdministrativos =
+      await this.userRepository.find({
+        where: {
+          idRol: In([
+            6,
+            7,
+          ]),
+
+          activo: true,
+        },
+      });
+
+    /*
+     * Creamos una notificación
+     * para cada Supervisor y
+     * Administrador activo.
+     */
+    await Promise.all(
+      usuariosAdministrativos.map(
+        (usuario) =>
+          this.notificacionesService.crear(
+            usuario.id,
+
+            'Nuevo ticket registrado',
+
+            `Se creó el ticket ${ticketGuardado.codigo}: ${ticketGuardado.titulo}. Impacto: ${ticketGuardado.impacto}. Urgencia: ${ticketGuardado.urgencia}.`,
+
+            ticketGuardado.idTicket,
+          ),
+      ),
+    );
+
+    return ticketGuardado;
   }
 
   async findAll() {
@@ -111,6 +183,7 @@ export class TicketsService {
       where: {
         idSolicitante,
       },
+
       order: {
         idTicket: 'DESC',
       },
@@ -173,8 +246,10 @@ export class TicketsService {
 
   async gestionarAtencion(
     idTicket: number,
+
     updateAtencionTicketDto:
       UpdateAtencionTicketDto,
+
     idUsuario: number,
   ) {
     const ticket =
@@ -190,6 +265,9 @@ export class TicketsService {
       );
     }
 
+    /*
+     * Validamos que la prioridad exista.
+     */
     const prioridad =
       await this.prioridadRepository.findOne({
         where: {
@@ -204,6 +282,10 @@ export class TicketsService {
       );
     }
 
+    /*
+     * La prioridad también
+     * debe encontrarse activa.
+     */
     if (!prioridad.activo) {
       throw new BadRequestException(
         'La prioridad seleccionada está inactiva',
@@ -240,8 +322,11 @@ export class TicketsService {
 
       await this.bitacoraService.registrar(
         idTicket,
+
         idUsuario,
+
         'Atención actualizada',
+
         `Técnico: ${
           ticketActualizado.tecnico
             ?.usuario ??
@@ -258,17 +343,19 @@ export class TicketsService {
       );
 
       /*
-       * Notificación para el técnico
-       * al momento de asignarle el ticket.
+       * Notificación al técnico.
        */
       await this.notificacionesService.crear(
         updateAtencionTicketDto.idTecnico,
+
         'Nuevo ticket asignado',
+
         `Se le asignó el ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo}. Prioridad: ${
           ticketActualizado.prioridad
             ?.nombre ??
           prioridad.nombre
         }.`,
+
         idTicket,
       );
 
@@ -287,6 +374,7 @@ export class TicketsService {
       where: {
         idTecnico,
       },
+
       order: {
         idTicket: 'DESC',
       },
@@ -295,7 +383,9 @@ export class TicketsService {
 
   async actualizarEstado(
     idTicket: number,
+
     idTecnico: number,
+
     updateEstadoTicketDto:
       UpdateEstadoTicketDto,
   ) {
@@ -345,7 +435,9 @@ export class TicketsService {
       );
     }
 
-    if (estadoActual === 6) {
+    if (
+      estadoActual === 6
+    ) {
       throw new BadRequestException(
         'Un ticket cerrado ya no puede cambiar de estado',
       );
@@ -355,9 +447,19 @@ export class TicketsService {
       number,
       number[]
     > = {
-      3: [4, 5],
-      4: [3, 5],
-      5: [6],
+      3: [
+        4,
+        5,
+      ],
+
+      4: [
+        3,
+        5,
+      ],
+
+      5: [
+        6,
+      ],
     };
 
     const estadosPermitidos =
@@ -394,12 +496,15 @@ export class TicketsService {
       ] ??
       `ID ${estadoActual}`;
 
-    if (estadoNuevo === 6) {
+    if (
+      estadoNuevo === 6
+    ) {
       await this.ticketRepository.update(
         idTicket,
         {
           idEstado:
             estadoNuevo,
+
           fechaCierre:
             new Date(),
         },
@@ -436,24 +541,28 @@ export class TicketsService {
       `ID ${estadoNuevo}`;
 
     /*
-     * Registramos el cambio
-     * en la bitácora.
+     * Bitácora.
      */
     await this.bitacoraService.registrar(
       idTicket,
+
       idTecnico,
+
       'Estado actualizado',
+
       `El estado cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
     );
 
     /*
-     * Notificamos al solicitante
-     * que el estado de su ticket cambió.
+     * Notificación al solicitante.
      */
     await this.notificacionesService.crear(
       ticket.idSolicitante,
+
       'Estado de ticket actualizado',
+
       `El ticket ${ticketActualizado.codigo}: ${ticketActualizado.titulo} cambió de ${nombreEstadoAnterior} a ${nombreEstadoNuevo}.`,
+
       idTicket,
     );
 
