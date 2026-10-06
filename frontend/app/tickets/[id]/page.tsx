@@ -72,6 +72,23 @@ interface Bitacora {
   };
 }
 
+interface Comentario {
+  idComentario: number;
+  idTicket: number;
+  idUsuario: number;
+  mensaje: string;
+  fechaCreacion: string;
+
+  usuario: {
+    id: number;
+    usuario: string;
+    rol?: {
+      idRol: number;
+      nombre: string;
+    };
+  };
+}
+
 interface OpcionEstado {
   idEstado: number;
   nombre: string;
@@ -94,17 +111,40 @@ export default function DetalleTicketPage() {
   const [bitacora, setBitacora] =
     useState<Bitacora[]>([]);
 
+  const [comentarios, setComentarios] =
+    useState<Comentario[]>([]);
+
   const [cargando, setCargando] =
     useState(true);
 
   const [actualizando, setActualizando] =
     useState(false);
 
+  const [
+    enviandoComentario,
+    setEnviandoComentario,
+  ] = useState(false);
+
   const [mensaje, setMensaje] =
     useState('');
 
   const [mensajeExito, setMensajeExito] =
     useState('');
+
+  const [
+    nuevoComentario,
+    setNuevoComentario,
+  ] = useState('');
+
+  const [
+    mensajeComentario,
+    setMensajeComentario,
+  ] = useState('');
+
+  const [
+    mensajeComentarioExito,
+    setMensajeComentarioExito,
+  ] = useState('');
 
   const [
     estadoSeleccionado,
@@ -204,11 +244,16 @@ export default function DetalleTicketPage() {
         );
 
         /*
-         * 2. Consultar ticket y bitácora
+         * 2. Consultar:
+         *
+         * - Ticket
+         * - Bitácora
+         * - Comentarios
          */
         const [
           respuestaTicket,
           respuestaBitacora,
+          respuestaComentarios,
         ] = await Promise.all([
           fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}`,
@@ -222,6 +267,16 @@ export default function DetalleTicketPage() {
 
           fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/bitacora`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            },
+          ),
+
+          fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/comentarios`,
             {
               headers: {
                 Authorization:
@@ -276,6 +331,18 @@ export default function DetalleTicketPage() {
           );
         } else {
           setBitacora([]);
+        }
+
+        if (respuestaComentarios.ok) {
+          const comentariosData:
+            Comentario[] =
+            await respuestaComentarios.json();
+
+          setComentarios(
+            comentariosData,
+          );
+        } else {
+          setComentarios([]);
         }
       } catch {
         setMensaje(
@@ -442,6 +509,110 @@ export default function DetalleTicketPage() {
     }
   }
 
+  async function crearComentario() {
+    const comentarioLimpio =
+      nuevoComentario.trim();
+
+    if (!comentarioLimpio) {
+      setMensajeComentario(
+        'Escriba un comentario antes de enviarlo.',
+      );
+
+      return;
+    }
+
+    const token =
+      localStorage.getItem(
+        'access_token',
+      );
+
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    setEnviandoComentario(true);
+    setMensajeComentario('');
+    setMensajeComentarioExito('');
+
+    try {
+      const respuesta = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/comentarios`,
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            mensaje: comentarioLimpio,
+          }),
+        },
+      );
+
+      if (respuesta.status === 401) {
+        localStorage.removeItem(
+          'access_token',
+        );
+
+        router.replace('/');
+        return;
+      }
+
+      if (respuesta.status === 403) {
+        setMensajeComentario(
+          'No tiene permisos para comentar en este ticket.',
+        );
+
+        return;
+      }
+
+      if (!respuesta.ok) {
+        const errorData =
+          await respuesta
+            .json()
+            .catch(() => null);
+
+        if (errorData?.message) {
+          setMensajeComentario(
+            Array.isArray(
+              errorData.message,
+            )
+              ? errorData.message.join(
+                  ', ',
+                )
+              : errorData.message,
+          );
+        } else {
+          setMensajeComentario(
+            'No fue posible registrar el comentario.',
+          );
+        }
+
+        return;
+      }
+
+      setNuevoComentario('');
+
+      setMensajeComentarioExito(
+        'Comentario agregado correctamente.',
+      );
+
+      await cargarInformacion(false);
+    } catch {
+      setMensajeComentario(
+        'No fue posible conectar con el servidor.',
+      );
+    } finally {
+      setEnviandoComentario(false);
+    }
+  }
+
   function formatearFecha(
     fecha: string,
   ) {
@@ -491,6 +662,9 @@ export default function DetalleTicketPage() {
 
       case 3:
         return 'bg-red-50 text-[#EC2328]';
+
+      case 4:
+        return 'bg-red-100 text-red-800';
 
       default:
         return 'bg-slate-100 text-slate-700';
@@ -736,6 +910,171 @@ export default function DetalleTicketPage() {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* COMENTARIOS */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-[#1F4697]">
+                    Seguimiento / Comentarios
+                  </h2>
+
+                  <p className="mt-1 text-sm text-[#61605E]">
+                    Registre observaciones,
+                    avances o información
+                    relacionada con la atención
+                    del incidente.
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-slate-50 px-4 py-2 text-center">
+                  <p className="text-xs text-slate-500">
+                    Comentarios
+                  </p>
+
+                  <p className="text-lg font-bold text-[#1F4697]">
+                    {comentarios.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* NUEVO COMENTARIO */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <label
+                  htmlFor="comentario"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Agregar comentario
+                </label>
+
+                <textarea
+                  id="comentario"
+                  rows={4}
+                  value={nuevoComentario}
+                  onChange={(event) => {
+                    setNuevoComentario(
+                      event.target.value,
+                    );
+
+                    setMensajeComentario('');
+
+                    setMensajeComentarioExito(
+                      '',
+                    );
+                  }}
+                  placeholder="Escriba una actualización o seguimiento del ticket..."
+                  className="w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                />
+
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={
+                      crearComentario
+                    }
+                    disabled={
+                      enviandoComentario ||
+                      !nuevoComentario.trim()
+                    }
+                    className="rounded-lg bg-[#1F4697] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {enviandoComentario
+                      ? 'Enviando...'
+                      : 'Agregar comentario'}
+                  </button>
+                </div>
+
+                {mensajeComentarioExito && (
+                  <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                    {
+                      mensajeComentarioExito
+                    }
+                  </div>
+                )}
+
+                {mensajeComentario && (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {mensajeComentario}
+                  </div>
+                )}
+              </div>
+
+              {/* LISTADO */}
+              <div className="mt-6">
+                {comentarios.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 px-5 py-8 text-center">
+                    <p className="font-semibold text-slate-700">
+                      No hay comentarios todavía.
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      El seguimiento del ticket
+                      aparecerá en esta sección.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {comentarios.map(
+                      (comentario) => (
+                        <div
+                          key={
+                            comentario.idComentario
+                          }
+                          className="rounded-xl border border-slate-200 bg-white p-4"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-[#1F4697]">
+                                {comentario.usuario
+                                  ?.usuario
+                                  ?.charAt(0)
+                                  .toUpperCase() ??
+                                  'U'}
+                              </div>
+
+                              <div>
+                                <p className="font-semibold text-slate-900">
+                                  {comentario
+                                    .usuario
+                                    ?.usuario ??
+                                    `Usuario ${comentario.idUsuario}`}
+                                </p>
+
+                                {comentario
+                                  .usuario
+                                  ?.rol
+                                  ?.nombre && (
+                                  <p className="text-xs text-slate-500">
+                                    {
+                                      comentario
+                                        .usuario
+                                        .rol
+                                        .nombre
+                                    }
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-slate-400">
+                              {formatearFecha(
+                                comentario.fechaCreacion,
+                              )}
+                            </p>
+                          </div>
+
+                          <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                            {
+                              comentario.mensaje
+                            }
+                          </p>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

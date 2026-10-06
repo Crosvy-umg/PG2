@@ -3,7 +3,9 @@ import {
   ConfigModule,
   ConfigService,
 } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import {
+  TypeOrmModule,
+} from '@nestjs/typeorm';
 
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -13,6 +15,7 @@ import { PrioridadesModule } from './prioridades/prioridades.module';
 import { EstadosModule } from './estados/estados.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
+import { ComentariosModule } from './comentarios/comentarios.module';
 
 @Module({
   imports: [
@@ -24,12 +27,14 @@ import { NotificacionesModule } from './notificaciones/notificaciones.module';
       imports: [
         ConfigModule,
       ],
+
       inject: [
         ConfigService,
       ],
 
       useFactory: (
-        configService: ConfigService,
+        configService:
+          ConfigService,
       ) => ({
         type: 'mysql',
 
@@ -72,6 +77,7 @@ import { NotificacionesModule } from './notificaciones/notificaciones.module';
     EstadosModule,
     TicketsModule,
     NotificacionesModule,
+    ComentariosModule,
   ],
 })
 export class AppModule {}
