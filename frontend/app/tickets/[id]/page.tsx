@@ -82,6 +82,7 @@ interface Comentario {
   usuario: {
     id: number;
     usuario: string;
+
     rol?: {
       idRol: number;
       nombre: string;
@@ -940,65 +941,89 @@ export default function DetalleTicketPage() {
               </div>
 
               {/* NUEVO COMENTARIO */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <label
-                  htmlFor="comentario"
-                  className="mb-2 block text-sm font-semibold text-slate-700"
-                >
-                  Agregar comentario
-                </label>
+              {ticket.estado.idEstado === 6 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-lg text-slate-600">
+                      🔒
+                    </div>
 
-                <textarea
-                  id="comentario"
-                  rows={4}
-                  value={nuevoComentario}
-                  onChange={(event) => {
-                    setNuevoComentario(
-                      event.target.value,
-                    );
+                    <div>
+                      <p className="font-semibold text-slate-800">
+                        Ticket cerrado
+                      </p>
 
-                    setMensajeComentario('');
-
-                    setMensajeComentarioExito(
-                      '',
-                    );
-                  }}
-                  placeholder="Escriba una actualización o seguimiento del ticket..."
-                  className="w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
-                />
-
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={
-                      crearComentario
-                    }
-                    disabled={
-                      enviandoComentario ||
-                      !nuevoComentario.trim()
-                    }
-                    className="rounded-lg bg-[#1F4697] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
-                    {enviandoComentario
-                      ? 'Enviando...'
-                      : 'Agregar comentario'}
-                  </button>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        El ticket se encuentra cerrado y
+                        ya no admite nuevos comentarios.
+                        Los comentarios registrados
+                        anteriormente permanecen
+                        disponibles para consulta.
+                      </p>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <label
+                    htmlFor="comentario"
+                    className="mb-2 block text-sm font-semibold text-slate-700"
+                  >
+                    Agregar comentario
+                  </label>
 
-                {mensajeComentarioExito && (
-                  <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                    {
-                      mensajeComentarioExito
-                    }
-                  </div>
-                )}
+                  <textarea
+                    id="comentario"
+                    rows={4}
+                    value={nuevoComentario}
+                    onChange={(event) => {
+                      setNuevoComentario(
+                        event.target.value,
+                      );
 
-                {mensajeComentario && (
-                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {mensajeComentario}
+                      setMensajeComentario('');
+
+                      setMensajeComentarioExito(
+                        '',
+                      );
+                    }}
+                    placeholder="Escriba una actualización o seguimiento del ticket..."
+                    className="w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
+                  />
+
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={
+                        crearComentario
+                      }
+                      disabled={
+                        enviandoComentario ||
+                        !nuevoComentario.trim()
+                      }
+                      className="rounded-lg bg-[#1F4697] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {enviandoComentario
+                        ? 'Enviando...'
+                        : 'Agregar comentario'}
+                    </button>
                   </div>
-                )}
-              </div>
+
+                  {mensajeComentarioExito && (
+                    <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                      {
+                        mensajeComentarioExito
+                      }
+                    </div>
+                  )}
+
+                  {mensajeComentario && (
+                    <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {mensajeComentario}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* LISTADO */}
               <div className="mt-6">

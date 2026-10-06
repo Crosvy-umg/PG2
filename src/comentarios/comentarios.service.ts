@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -104,7 +105,7 @@ export class ComentariosService {
       new Set<number>();
 
     /*
-     * Si comenta el solicitante,
+     * Solicitante comenta:
      * notificamos al técnico asignado.
      */
     if (rol === 'Solicitante') {
@@ -119,7 +120,7 @@ export class ComentariosService {
     }
 
     /*
-     * Si comenta el técnico,
+     * Técnico comenta:
      * notificamos al solicitante.
      */
     if (rol === 'Técnico') {
@@ -134,10 +135,9 @@ export class ComentariosService {
     }
 
     /*
-     * Si comenta Supervisor o
-     * Administrador, notificamos
-     * tanto al solicitante como
-     * al técnico asignado.
+     * Supervisor o Administrador:
+     * notificamos al solicitante
+     * y al técnico asignado.
      */
     if (
       rol === 'Supervisor' ||
@@ -211,6 +211,17 @@ export class ComentariosService {
         rol,
       );
 
+    /*
+     * Un ticket cerrado puede ser
+     * consultado, pero ya no puede
+     * recibir nuevos comentarios.
+     */
+    if (ticket.idEstado === 6) {
+      throw new BadRequestException(
+        'No se pueden agregar comentarios a un ticket cerrado',
+      );
+    }
+
     const nuevoComentario =
       this.comentarioRepository.create({
         idTicket,
@@ -224,10 +235,6 @@ export class ComentariosService {
         nuevoComentario,
       );
 
-    /*
-     * Generamos las notificaciones
-     * después de guardar el comentario.
-     */
     await this.notificarComentario(
       ticket,
       idUsuario,
