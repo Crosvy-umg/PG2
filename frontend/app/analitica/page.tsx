@@ -15,6 +15,10 @@ import {
   exportarAnaliticaExcel,
 } from '../../lib/exportarAnaliticaExcel';
 
+import {
+  exportarAnaliticaPdf,
+} from '../../lib/exportarAnaliticaPdf';
+
 interface Perfil {
   sub: number;
   usuario: string;
@@ -511,6 +515,33 @@ export default function AnaliticaPage() {
     }
   }
 
+  function exportarPdf() {
+  setError('');
+
+  try {
+    exportarAnaliticaPdf({
+      resumen,
+      categorias,
+      prioridades,
+      tecnicos,
+      historicoMensual:
+        mensual,
+      desde:
+        filtroAplicado?.desde,
+      hasta:
+        filtroAplicado?.hasta,
+    });
+  } catch (errorExportar) {
+    console.error(
+      errorExportar,
+    );
+
+    setError(
+      'No fue posible generar el archivo PDF.',
+    );
+  }
+}
+
   function formatearFechaFiltro(
     fecha: string,
   ) {
@@ -586,7 +617,7 @@ export default function AnaliticaPage() {
               </p>
             </div>
 
-            <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[180px_180px_auto_auto_auto] lg:items-end">
+            <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[180px_180px_auto_auto_auto_auto] lg:items-end">
               <div>
                 <label
                   htmlFor="fecha-desde"
@@ -676,6 +707,20 @@ export default function AnaliticaPage() {
               >
                 Exportar Excel
               </button>
+
+              <button
+  type="button"
+  onClick={
+    exportarPdf
+  }
+  disabled={
+    cargandoFiltro ||
+    resumen.total === 0
+  }
+  className="rounded-lg border border-red-600 bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+>
+  Exportar PDF
+</button>
 
             </div>
           </div>
