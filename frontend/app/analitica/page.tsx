@@ -11,6 +11,10 @@ import {
 
 import AppShell from '../../components/AppShell';
 
+import {
+  exportarAnaliticaExcel,
+} from '../../lib/exportarAnaliticaExcel';
+
 interface Perfil {
   sub: number;
   usuario: string;
@@ -480,6 +484,33 @@ export default function AnaliticaPage() {
     }
   }
 
+    function exportarExcel() {
+    setError('');
+
+    try {
+      exportarAnaliticaExcel({
+        resumen,
+        categorias,
+        prioridades,
+        tecnicos,
+        historicoMensual:
+          mensual,
+        desde:
+          filtroAplicado?.desde,
+        hasta:
+          filtroAplicado?.hasta,
+      });
+    } catch (errorExportar) {
+      console.error(
+        errorExportar,
+      );
+
+      setError(
+        'No fue posible generar el archivo Excel.',
+      );
+    }
+  }
+
   function formatearFechaFiltro(
     fecha: string,
   ) {
@@ -555,7 +586,7 @@ export default function AnaliticaPage() {
               </p>
             </div>
 
-            <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[180px_180px_auto_auto] lg:items-end">
+            <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[180px_180px_auto_auto_auto] lg:items-end">
               <div>
                 <label
                   htmlFor="fecha-desde"
@@ -631,6 +662,21 @@ export default function AnaliticaPage() {
               >
                 Limpiar
               </button>
+
+                              <button
+                type="button"
+                onClick={
+                  exportarExcel
+                }
+                disabled={
+                  cargandoFiltro ||
+                  resumen.total === 0
+                }
+                className="rounded-lg border border-green-600 bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Exportar Excel
+              </button>
+
             </div>
           </div>
 
