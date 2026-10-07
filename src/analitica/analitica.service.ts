@@ -805,4 +805,319 @@ export class AnaliticaService {
       },
     );
   }
+
+  async obtenerMetricasTiempo(
+    desde?: string,
+    hasta?: string,
+  ) {
+    const query =
+      this.ticketRepository
+        .createQueryBuilder('ticket');
+
+    this.aplicarFiltroFechas(
+      query,
+      desde,
+      hasta,
+    );
+
+    const resultado =
+      await query
+        .select(
+          'COUNT(ticket.idTicket)',
+          'totalTickets',
+        )
+        .addSelect(
+          `SUM(
+            CASE
+              WHEN ticket.fechaResolucion IS NOT NULL
+              THEN 1
+              ELSE 0
+            END
+          )`,
+          'ticketsConResolucion',
+        )
+        .addSelect(
+          `SUM(
+            CASE
+              WHEN ticket.fechaCierre IS NOT NULL
+              THEN 1
+              ELSE 0
+            END
+          )`,
+          'ticketsCerrados',
+        )
+        .addSelect(
+          `AVG(
+            CASE
+              WHEN ticket.fechaResolucion IS NOT NULL
+              THEN TIMESTAMPDIFF(
+                MINUTE,
+                ticket.fechaCreacion,
+                ticket.fechaResolucion
+              )
+              ELSE NULL
+            END
+          )`,
+          'promedioResolucionMinutos',
+        )
+        .addSelect(
+          `AVG(
+            CASE
+              WHEN ticket.fechaCierre IS NOT NULL
+              THEN TIMESTAMPDIFF(
+                MINUTE,
+                ticket.fechaCreacion,
+                ticket.fechaCierre
+              )
+              ELSE NULL
+            END
+          )`,
+          'promedioCierreMinutos',
+        )
+        .addSelect(
+          `MIN(
+            CASE
+              WHEN ticket.fechaResolucion IS NOT NULL
+              THEN TIMESTAMPDIFF(
+                MINUTE,
+                ticket.fechaCreacion,
+                ticket.fechaResolucion
+              )
+              ELSE NULL
+            END
+          )`,
+          'menorTiempoResolucion',
+        )
+        .addSelect(
+          `MAX(
+            CASE
+              WHEN ticket.fechaResolucion IS NOT NULL
+              THEN TIMESTAMPDIFF(
+                MINUTE,
+                ticket.fechaCreacion,
+                ticket.fechaResolucion
+              )
+              ELSE NULL
+            END
+          )`,
+          'mayorTiempoResolucion',
+        )
+        .getRawOne();
+
+    const queryMasRapido =
+      this.ticketRepository
+        .createQueryBuilder('ticket')
+        .select(
+          'ticket.idTicket',
+          'idTicket',
+        )
+        .addSelect(
+          'ticket.codigo',
+          'codigo',
+        )
+        .addSelect(
+          'ticket.titulo',
+          'titulo',
+        )
+        .addSelect(
+          `TIMESTAMPDIFF(
+            MINUTE,
+            ticket.fechaCreacion,
+            ticket.fechaResolucion
+          )`,
+          'tiempoResolucionMinutos',
+        )
+        .andWhere(
+          'ticket.fechaResolucion IS NOT NULL',
+        );
+
+    this.aplicarFiltroFechas(
+      queryMasRapido,
+      desde,
+      hasta,
+    );
+
+    const ticketMasRapido =
+      await queryMasRapido
+        .orderBy(
+          'tiempoResolucionMinutos',
+          'ASC',
+        )
+        .addOrderBy(
+          'ticket.idTicket',
+          'ASC',
+        )
+        .getRawOne();
+
+    const queryMasLento =
+      this.ticketRepository
+        .createQueryBuilder('ticket')
+        .select(
+          'ticket.idTicket',
+          'idTicket',
+        )
+        .addSelect(
+          'ticket.codigo',
+          'codigo',
+        )
+        .addSelect(
+          'ticket.titulo',
+          'titulo',
+        )
+        .addSelect(
+          `TIMESTAMPDIFF(
+            MINUTE,
+            ticket.fechaCreacion,
+            ticket.fechaResolucion
+          )`,
+          'tiempoResolucionMinutos',
+        )
+        .andWhere(
+          'ticket.fechaResolucion IS NOT NULL',
+        );
+
+    this.aplicarFiltroFechas(
+      queryMasLento,
+      desde,
+      hasta,
+    );
+
+    const ticketMasLento =
+      await queryMasLento
+        .orderBy(
+          'tiempoResolucionMinutos',
+          'DESC',
+        )
+        .addOrderBy(
+          'ticket.idTicket',
+          'ASC',
+        )
+        .getRawOne();
+
+    const promedioResolucionMinutos =
+      Number(
+        Number(
+          resultado
+            ?.promedioResolucionMinutos ??
+            0,
+        ).toFixed(2),
+      );
+
+    const promedioCierreMinutos =
+      Number(
+        Number(
+          resultado
+            ?.promedioCierreMinutos ??
+            0,
+        ).toFixed(2),
+      );
+
+    const convertirTicket =
+      (
+        ticket:
+          | Record<string, any>
+          | undefined,
+      ) => {
+        if (!ticket) {
+          return null;
+        }
+
+        const minutos =
+          Number(
+            ticket
+              .tiempoResolucionMinutos,
+          ) || 0;
+
+        return {
+          idTicket:
+            Number(
+              ticket.idTicket,
+            ),
+
+          codigo:
+            ticket.codigo,
+
+          titulo:
+            ticket.titulo,
+
+          tiempoResolucionMinutos:
+            minutos,
+
+          tiempoResolucionHoras:
+            Number(
+              (
+                minutos / 60
+              ).toFixed(2),
+            ),
+        };
+      };
+
+    return {
+      periodo: {
+        desde:
+          desde ?? null,
+
+        hasta:
+          hasta ?? null,
+      },
+
+      totalTickets:
+        Number(
+          resultado?.totalTickets,
+        ) || 0,
+
+      ticketsConResolucion:
+        Number(
+          resultado
+            ?.ticketsConResolucion,
+        ) || 0,
+
+      ticketsCerrados:
+        Number(
+          resultado?.ticketsCerrados,
+        ) || 0,
+
+      promedioResolucionMinutos,
+
+      promedioResolucionHoras:
+        Number(
+          (
+            promedioResolucionMinutos /
+            60
+          ).toFixed(2),
+        ),
+
+      promedioCierreMinutos,
+
+      promedioCierreHoras:
+        Number(
+          (
+            promedioCierreMinutos /
+            60
+          ).toFixed(2),
+        ),
+
+      menorTiempoResolucionMinutos:
+        Number(
+          resultado
+            ?.menorTiempoResolucion,
+        ) || 0,
+
+      mayorTiempoResolucionMinutos:
+        Number(
+          resultado
+            ?.mayorTiempoResolucion,
+        ) || 0,
+
+      ticketMasRapido:
+        convertirTicket(
+          ticketMasRapido,
+        ),
+
+      ticketMasLento:
+        convertirTicket(
+          ticketMasLento,
+        ),
+    };
+  }
 }

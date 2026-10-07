@@ -53,13 +53,58 @@ interface HistoricoMensual {
   cerrados: number;
 }
 
+interface TicketTiempo {
+  idTicket: number;
+  codigo: string;
+  titulo: string;
+  tiempoResolucionMinutos: number;
+  tiempoResolucionHoras: number;
+}
+
+interface MetricasTiempoAnalitica {
+  periodo: {
+    desde: string | null;
+    hasta: string | null;
+  };
+
+  totalTickets: number;
+  ticketsConResolucion: number;
+  ticketsCerrados: number;
+
+  promedioResolucionMinutos: number;
+  promedioResolucionHoras: number;
+
+  promedioCierreMinutos: number;
+  promedioCierreHoras: number;
+
+  menorTiempoResolucionMinutos: number;
+  mayorTiempoResolucionMinutos: number;
+
+  ticketMasRapido:
+    | TicketTiempo
+    | null;
+
+  ticketMasLento:
+    | TicketTiempo
+    | null;
+}
+
 interface ExportarAnaliticaPdfParams {
   resumen: ResumenAnalitica;
+
   categorias: CategoriaAnalitica[];
+
   prioridades: PrioridadAnalitica[];
+
   tecnicos: TecnicoAnalitica[];
+
   historicoMensual: HistoricoMensual[];
+
+  metricasTiempo?:
+    MetricasTiempoAnalitica;
+
   desde?: string;
+
   hasta?: string;
 }
 
@@ -79,11 +124,48 @@ function formatearFecha(
   const partes =
     fecha.split('-');
 
-  if (partes.length !== 3) {
+  if (
+    partes.length !== 3
+  ) {
     return fecha;
   }
 
   return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+function formatearTiempo(
+  minutos: number,
+) {
+  if (
+    !Number.isFinite(
+      minutos,
+    ) ||
+    minutos < 0
+  ) {
+    return 'No disponible';
+  }
+
+  const horas =
+    Math.floor(
+      minutos / 60,
+    );
+
+  const minutosRestantes =
+    Math.round(
+      minutos % 60,
+    );
+
+  if (horas === 0) {
+    return `${minutosRestantes} min`;
+  }
+
+  if (
+    minutosRestantes === 0
+  ) {
+    return `${horas} h`;
+  }
+
+  return `${horas} h ${minutosRestantes} min`;
 }
 
 function obtenerSiguienteY(
@@ -92,17 +174,21 @@ function obtenerSiguienteY(
   espacioMinimo = 35,
 ) {
   const finalY =
-    documento.lastAutoTable?.finalY ??
+    documento.lastAutoTable
+      ?.finalY ??
     40;
 
   const siguienteY =
     finalY + margen;
 
   const altoPagina =
-    documento.internal.pageSize.getHeight();
+    documento.internal
+      .pageSize
+      .getHeight();
 
   if (
-    siguienteY + espacioMinimo >
+    siguienteY +
+      espacioMinimo >
     altoPagina - 15
   ) {
     documento.addPage();
@@ -119,41 +205,65 @@ export function exportarAnaliticaPdf({
   prioridades,
   tecnicos,
   historicoMensual,
+  metricasTiempo,
   desde,
   hasta,
 }: ExportarAnaliticaPdfParams) {
   const documento =
     new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4',
+      orientation:
+        'landscape',
+
+      unit:
+        'mm',
+
+      format:
+        'a4',
     }) as JsPdfConTabla;
 
   const anchoPagina =
-    documento.internal.pageSize.getWidth();
+    documento.internal
+      .pageSize
+      .getWidth();
+
+  const altoPagina =
+    documento.internal
+      .pageSize
+      .getHeight();
 
   const fechaGeneracion =
-    new Date().toLocaleString(
-      'es-GT',
-      {
-        dateStyle: 'short',
-        timeStyle: 'short',
-      },
-    );
+    new Date()
+      .toLocaleString(
+        'es-GT',
+        {
+          dateStyle:
+            'short',
+
+          timeStyle:
+            'short',
+        },
+      );
+
+  /*
+   * ENCABEZADO
+   */
 
   documento.setFont(
     'helvetica',
     'bold',
   );
 
-  documento.setFontSize(18);
+  documento.setFontSize(
+    18,
+  );
 
   documento.text(
     'Reporte de Incidentes TI',
     anchoPagina / 2,
     16,
     {
-      align: 'center',
+      align:
+        'center',
     },
   );
 
@@ -162,14 +272,17 @@ export function exportarAnaliticaPdf({
     'normal',
   );
 
-  documento.setFontSize(10);
+  documento.setFontSize(
+    10,
+  );
 
   documento.text(
     'Grupo Master - Departamento de IT',
     anchoPagina / 2,
     23,
     {
-      align: 'center',
+      align:
+        'center',
     },
   );
 
@@ -181,10 +294,16 @@ export function exportarAnaliticaPdf({
     hasta
   ) {
     periodo =
-      `${formatearFecha(desde)} al ${formatearFecha(hasta)}`;
+      `${formatearFecha(
+        desde,
+      )} al ${formatearFecha(
+        hasta,
+      )}`;
   }
 
-  documento.setFontSize(9);
+  documento.setFontSize(
+    9,
+  );
 
   documento.text(
     `Período: ${periodo}`,
@@ -197,7 +316,8 @@ export function exportarAnaliticaPdf({
     anchoPagina - 14,
     32,
     {
-      align: 'right',
+      align:
+        'right',
     },
   );
 
@@ -207,7 +327,9 @@ export function exportarAnaliticaPdf({
     151,
   );
 
-  documento.setLineWidth(0.8);
+  documento.setLineWidth(
+    0.8,
+  );
 
   documento.line(
     14,
@@ -216,12 +338,24 @@ export function exportarAnaliticaPdf({
     36,
   );
 
+  /*
+   * RESUMEN GENERAL
+   */
+
   documento.setFont(
     'helvetica',
     'bold',
   );
 
-  documento.setFontSize(13);
+  documento.setTextColor(
+    0,
+    0,
+    0,
+  );
+
+  documento.setFontSize(
+    13,
+  );
 
   documento.text(
     'Resumen general',
@@ -232,7 +366,8 @@ export function exportarAnaliticaPdf({
   autoTable(
     documento,
     {
-      startY: 50,
+      startY:
+        50,
 
       head: [
         [
@@ -246,41 +381,52 @@ export function exportarAnaliticaPdf({
           'Total de tickets',
           resumen.total,
         ],
+
         [
           'Nuevos',
           resumen.nuevos,
         ],
+
         [
           'En revisión',
           resumen.enRevision,
         ],
+
         [
           'En atención',
           resumen.enAtencion,
         ],
+
         [
           'Pendientes',
           resumen.pendientes,
         ],
+
         [
           'Resueltos',
           resumen.resueltos,
         ],
+
         [
           'Cerrados',
           resumen.cerrados,
         ],
+
         [
           'Sin asignar',
           resumen.sinAsignar,
         ],
       ],
 
-      theme: 'grid',
+      theme:
+        'grid',
 
       styles: {
-        fontSize: 9,
-        cellPadding: 2.5,
+        fontSize:
+          9,
+
+        cellPadding:
+          2.5,
       },
 
       headStyles: {
@@ -292,26 +438,371 @@ export function exportarAnaliticaPdf({
       },
 
       margin: {
-        left: 14,
-        right: 14,
+        left:
+          14,
+
+        right:
+          14,
       },
 
-      tableWidth: 100,
+      tableWidth:
+        100,
     },
   );
+
+  /*
+   * INDICADORES DE TIEMPOS
+   */
 
   let siguienteY =
     obtenerSiguienteY(
       documento,
       14,
+      75,
     );
+
+  if (
+    metricasTiempo
+  ) {
+    documento.setFont(
+      'helvetica',
+      'bold',
+    );
+
+    documento.setTextColor(
+      0,
+      0,
+      0,
+    );
+
+    documento.setFontSize(
+      13,
+    );
+
+    documento.text(
+      'Indicadores de tiempos',
+      14,
+      siguienteY,
+    );
+
+    autoTable(
+      documento,
+      {
+        startY:
+          siguienteY + 5,
+
+        head: [
+          [
+            'Indicador',
+            'Valor',
+          ],
+        ],
+
+        body: [
+          [
+            'Tickets analizados',
+            metricasTiempo
+              .totalTickets,
+          ],
+
+          [
+            'Tickets con resolución',
+            metricasTiempo
+              .ticketsConResolucion,
+          ],
+
+          [
+            'Tickets con cierre',
+            metricasTiempo
+              .ticketsCerrados,
+          ],
+
+          [
+            'Promedio de resolución',
+            formatearTiempo(
+              metricasTiempo
+                .promedioResolucionMinutos,
+            ),
+          ],
+
+          [
+            'Promedio de cierre',
+            formatearTiempo(
+              metricasTiempo
+                .promedioCierreMinutos,
+            ),
+          ],
+
+          [
+            'Menor tiempo de resolución',
+            formatearTiempo(
+              metricasTiempo
+                .menorTiempoResolucionMinutos,
+            ),
+          ],
+
+          [
+            'Mayor tiempo de resolución',
+            formatearTiempo(
+              metricasTiempo
+                .mayorTiempoResolucionMinutos,
+            ),
+          ],
+        ],
+
+        theme:
+          'grid',
+
+        styles: {
+          fontSize:
+            9,
+
+          cellPadding:
+            2.5,
+        },
+
+        headStyles: {
+          fillColor: [
+            31,
+            70,
+            151,
+          ],
+        },
+
+        margin: {
+          left:
+            14,
+
+          right:
+            14,
+        },
+
+        tableWidth:
+          110,
+      },
+    );
+
+    siguienteY =
+      obtenerSiguienteY(
+        documento,
+        10,
+        45,
+      );
+
+    documento.setFont(
+      'helvetica',
+      'bold',
+    );
+
+    documento.setFontSize(
+      11,
+    );
+
+    documento.text(
+      'Tickets destacados por tiempo de resolución',
+      14,
+      siguienteY,
+    );
+
+    autoTable(
+      documento,
+      {
+        startY:
+          siguienteY + 5,
+
+        head: [
+          [
+            'Tipo',
+            'Código',
+            'Título',
+            'Tiempo',
+          ],
+        ],
+
+        body: [
+          [
+            'Resolución más rápida',
+
+            metricasTiempo
+              .ticketMasRapido
+              ?.codigo ??
+              'No disponible',
+
+            metricasTiempo
+              .ticketMasRapido
+              ?.titulo ??
+              'No disponible',
+
+            metricasTiempo
+              .ticketMasRapido
+              ? formatearTiempo(
+                  metricasTiempo
+                    .ticketMasRapido
+                    .tiempoResolucionMinutos,
+                )
+              : 'No disponible',
+          ],
+
+          [
+            'Resolución más tardada',
+
+            metricasTiempo
+              .ticketMasLento
+              ?.codigo ??
+              'No disponible',
+
+            metricasTiempo
+              .ticketMasLento
+              ?.titulo ??
+              'No disponible',
+
+            metricasTiempo
+              .ticketMasLento
+              ? formatearTiempo(
+                  metricasTiempo
+                    .ticketMasLento
+                    .tiempoResolucionMinutos,
+                )
+              : 'No disponible',
+          ],
+        ],
+
+        theme:
+          'grid',
+
+        styles: {
+          fontSize:
+            8.5,
+
+          cellPadding:
+            2.5,
+        },
+
+        headStyles: {
+          fillColor: [
+            31,
+            70,
+            151,
+          ],
+        },
+
+        columnStyles: {
+          0: {
+            cellWidth:
+              50,
+          },
+
+          1: {
+            cellWidth:
+              30,
+          },
+
+          2: {
+            cellWidth:
+              100,
+          },
+
+          3: {
+            cellWidth:
+              35,
+          },
+        },
+
+        margin: {
+          left:
+            14,
+
+          right:
+            14,
+        },
+      },
+    );
+
+    let notaY =
+      (
+        documento
+          .lastAutoTable
+          ?.finalY ??
+        siguienteY
+      ) + 7;
+
+    if (
+      notaY >
+      altoPagina - 22
+    ) {
+      documento.addPage();
+
+      notaY =
+        25;
+    }
+
+    documento.setFont(
+      'helvetica',
+      'normal',
+    );
+
+    documento.setFontSize(
+      8,
+    );
+
+    documento.setTextColor(
+      31,
+      70,
+      151,
+    );
+
+    const nota =
+      documento.splitTextToSize(
+        'Nota: Los tiempos de resolución se calculan únicamente con tickets que cuentan con fecha de resolución registrada.',
+        anchoPagina - 28,
+      );
+
+    documento.text(
+      nota,
+      14,
+      notaY,
+    );
+
+    documento.setTextColor(
+      0,
+      0,
+      0,
+    );
+
+    siguienteY =
+      notaY +
+      nota.length * 4 +
+      10;
+
+    if (
+      siguienteY >
+      altoPagina - 35
+    ) {
+      documento.addPage();
+
+      siguienteY =
+        25;
+    }
+  } else {
+    siguienteY =
+      obtenerSiguienteY(
+        documento,
+        14,
+      );
+  }
+
+  /*
+   * TICKETS POR CATEGORÍA
+   */
 
   documento.setFont(
     'helvetica',
     'bold',
   );
 
-  documento.setFontSize(13);
+  documento.setFontSize(
+    13,
+  );
 
   documento.text(
     'Tickets por categoría',
@@ -338,7 +829,9 @@ export function exportarAnaliticaPdf({
           ? categorias.map(
               (registro) => [
                 registro.categoria,
+
                 registro.total,
+
                 `${registro.porcentaje}%`,
               ],
             )
@@ -350,11 +843,15 @@ export function exportarAnaliticaPdf({
               ],
             ],
 
-      theme: 'grid',
+      theme:
+        'grid',
 
       styles: {
-        fontSize: 9,
-        cellPadding: 2.5,
+        fontSize:
+          9,
+
+        cellPadding:
+          2.5,
       },
 
       headStyles: {
@@ -366,11 +863,18 @@ export function exportarAnaliticaPdf({
       },
 
       margin: {
-        left: 14,
-        right: 14,
+        left:
+          14,
+
+        right:
+          14,
       },
     },
   );
+
+  /*
+   * TICKETS POR PRIORIDAD
+   */
 
   siguienteY =
     obtenerSiguienteY(
@@ -383,7 +887,9 @@ export function exportarAnaliticaPdf({
     'bold',
   );
 
-  documento.setFontSize(13);
+  documento.setFontSize(
+    13,
+  );
 
   documento.text(
     'Tickets por prioridad',
@@ -411,8 +917,11 @@ export function exportarAnaliticaPdf({
           ? prioridades.map(
               (registro) => [
                 registro.prioridad,
+
                 registro.nivel,
+
                 registro.total,
+
                 `${registro.porcentaje}%`,
               ],
             )
@@ -425,11 +934,15 @@ export function exportarAnaliticaPdf({
               ],
             ],
 
-      theme: 'grid',
+      theme:
+        'grid',
 
       styles: {
-        fontSize: 9,
-        cellPadding: 2.5,
+        fontSize:
+          9,
+
+        cellPadding:
+          2.5,
       },
 
       headStyles: {
@@ -441,11 +954,18 @@ export function exportarAnaliticaPdf({
       },
 
       margin: {
-        left: 14,
-        right: 14,
+        left:
+          14,
+
+        right:
+          14,
       },
     },
   );
+
+  /*
+   * CARGA POR TÉCNICO
+   */
 
   siguienteY =
     obtenerSiguienteY(
@@ -458,7 +978,9 @@ export function exportarAnaliticaPdf({
     'bold',
   );
 
-  documento.setFontSize(13);
+  documento.setFontSize(
+    13,
+  );
 
   documento.text(
     'Carga de trabajo por técnico',
@@ -490,12 +1012,19 @@ export function exportarAnaliticaPdf({
           ? tecnicos.map(
               (registro) => [
                 registro.tecnico,
+
                 registro.totalAsignados,
+
                 registro.nuevos,
+
                 registro.enRevision,
+
                 registro.enAtencion,
+
                 registro.pendientes,
+
                 registro.resueltos,
+
                 registro.cerrados,
               ],
             )
@@ -512,12 +1041,18 @@ export function exportarAnaliticaPdf({
               ],
             ],
 
-      theme: 'grid',
+      theme:
+        'grid',
 
       styles: {
-        fontSize: 8,
-        cellPadding: 2.3,
-        halign: 'center',
+        fontSize:
+          8,
+
+        cellPadding:
+          2.3,
+
+        halign:
+          'center',
       },
 
       headStyles: {
@@ -530,16 +1065,24 @@ export function exportarAnaliticaPdf({
 
       columnStyles: {
         0: {
-          halign: 'left',
+          halign:
+            'left',
         },
       },
 
       margin: {
-        left: 14,
-        right: 14,
+        left:
+          14,
+
+        right:
+          14,
       },
     },
   );
+
+  /*
+   * HISTÓRICO MENSUAL
+   */
 
   siguienteY =
     obtenerSiguienteY(
@@ -552,7 +1095,9 @@ export function exportarAnaliticaPdf({
     'bold',
   );
 
-  documento.setFontSize(13);
+  documento.setFontSize(
+    13,
+  );
 
   documento.text(
     'Histórico mensual',
@@ -580,16 +1125,24 @@ export function exportarAnaliticaPdf({
       ],
 
       body:
-        historicoMensual.length > 0
+        historicoMensual.length >
+        0
           ? historicoMensual.map(
               (registro) => [
                 registro.periodo,
+
                 registro.total,
+
                 registro.nuevos,
+
                 registro.enRevision,
+
                 registro.enAtencion,
+
                 registro.pendientes,
+
                 registro.resueltos,
+
                 registro.cerrados,
               ],
             )
@@ -606,12 +1159,18 @@ export function exportarAnaliticaPdf({
               ],
             ],
 
-      theme: 'grid',
+      theme:
+        'grid',
 
       styles: {
-        fontSize: 8,
-        cellPadding: 2.3,
-        halign: 'center',
+        fontSize:
+          8,
+
+        cellPadding:
+          2.3,
+
+        halign:
+          'center',
       },
 
       headStyles: {
@@ -624,16 +1183,24 @@ export function exportarAnaliticaPdf({
 
       columnStyles: {
         0: {
-          halign: 'left',
+          halign:
+            'left',
         },
       },
 
       margin: {
-        left: 14,
-        right: 14,
+        left:
+          14,
+
+        right:
+          14,
       },
     },
   );
+
+  /*
+   * PIE DE PÁGINA
+   */
 
   const totalPaginas =
     documento.getNumberOfPages();
@@ -652,7 +1219,9 @@ export function exportarAnaliticaPdf({
       'normal',
     );
 
-    documento.setFontSize(8);
+    documento.setFontSize(
+      8,
+    );
 
     documento.setTextColor(
       100,
@@ -663,18 +1232,27 @@ export function exportarAnaliticaPdf({
     documento.text(
       `Página ${pagina} de ${totalPaginas}`,
       anchoPagina - 14,
-      documento.internal.pageSize.getHeight() - 8,
+      documento.internal
+        .pageSize
+        .getHeight() - 8,
       {
-        align: 'right',
+        align:
+          'right',
       },
     );
 
     documento.text(
       'Sistema de Gestión de Incidentes TI - Grupo Master',
       14,
-      documento.internal.pageSize.getHeight() - 8,
+      documento.internal
+        .pageSize
+        .getHeight() - 8,
     );
   }
+
+  /*
+   * NOMBRE DEL ARCHIVO
+   */
 
   let nombreArchivo =
     'reporte_incidentes';
@@ -687,7 +1265,8 @@ export function exportarAnaliticaPdf({
       `_${desde}_${hasta}`;
   }
 
-  nombreArchivo += '.pdf';
+  nombreArchivo +=
+    '.pdf';
 
   documento.save(
     nombreArchivo,

@@ -142,4 +142,27 @@ export class AnaliticaController {
         hasta,
       );
   }
+
+  @Get('tiempos')
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles(
+    'Supervisor',
+    'Administrador',
+  )
+  obtenerMetricasTiempo(
+    @Query('desde')
+    desde?: string,
+
+    @Query('hasta')
+    hasta?: string,
+  ) {
+    return this.analiticaService
+      .obtenerMetricasTiempo(
+        desde,
+        hasta,
+      );
+  }
 }
