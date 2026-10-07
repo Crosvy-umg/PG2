@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -36,9 +37,18 @@ export class AnaliticaController {
     'Supervisor',
     'Administrador',
   )
-  obtenerResumenGeneral() {
+  obtenerResumenGeneral(
+    @Query('desde')
+    desde?: string,
+
+    @Query('hasta')
+    hasta?: string,
+  ) {
     return this.analiticaService
-      .obtenerResumenGeneral();
+      .obtenerResumenGeneral(
+        desde,
+        hasta,
+      );
   }
 
   @Get('categorias')
@@ -50,9 +60,18 @@ export class AnaliticaController {
     'Supervisor',
     'Administrador',
   )
-  obtenerTicketsPorCategoria() {
+  obtenerTicketsPorCategoria(
+    @Query('desde')
+    desde?: string,
+
+    @Query('hasta')
+    hasta?: string,
+  ) {
     return this.analiticaService
-      .obtenerTicketsPorCategoria();
+      .obtenerTicketsPorCategoria(
+        desde,
+        hasta,
+      );
   }
 
   @Get('prioridades')
@@ -64,9 +83,18 @@ export class AnaliticaController {
     'Supervisor',
     'Administrador',
   )
-  obtenerTicketsPorPrioridad() {
+  obtenerTicketsPorPrioridad(
+    @Query('desde')
+    desde?: string,
+
+    @Query('hasta')
+    hasta?: string,
+  ) {
     return this.analiticaService
-      .obtenerTicketsPorPrioridad();
+      .obtenerTicketsPorPrioridad(
+        desde,
+        hasta,
+      );
   }
 
   @Get('tecnicos')
@@ -78,9 +106,18 @@ export class AnaliticaController {
     'Supervisor',
     'Administrador',
   )
-  obtenerTicketsPorTecnico() {
+  obtenerTicketsPorTecnico(
+    @Query('desde')
+    desde?: string,
+
+    @Query('hasta')
+    hasta?: string,
+  ) {
     return this.analiticaService
-      .obtenerTicketsPorTecnico();
+      .obtenerTicketsPorTecnico(
+        desde,
+        hasta,
+      );
   }
 
   @Get('mensual')
@@ -92,8 +129,17 @@ export class AnaliticaController {
     'Supervisor',
     'Administrador',
   )
-  obtenerHistoricoMensual() {
+  obtenerHistoricoMensual(
+    @Query('desde')
+    desde?: string,
+
+    @Query('hasta')
+    hasta?: string,
+  ) {
     return this.analiticaService
-      .obtenerHistoricoMensual();
+      .obtenerHistoricoMensual(
+        desde,
+        hasta,
+      );
   }
 }

@@ -72,6 +72,11 @@ interface MensualAnalitica {
   cerrados: number;
 }
 
+interface FiltroAplicado {
+  desde: string;
+  hasta: string;
+}
+
 const resumenInicial: Resumen = {
   total: 0,
   nuevos: 0,
@@ -107,8 +112,175 @@ export default function AnaliticaPage() {
   const [cargando, setCargando] =
     useState(true);
 
+  const [cargandoFiltro, setCargandoFiltro] =
+    useState(false);
+
   const [error, setError] =
     useState('');
+
+  const [mensajeFiltro, setMensajeFiltro] =
+    useState('');
+
+  const [desde, setDesde] =
+    useState('');
+
+  const [hasta, setHasta] =
+    useState('');
+
+  const [
+    filtroAplicado,
+    setFiltroAplicado,
+  ] =
+    useState<FiltroAplicado | null>(
+      null,
+    );
+
+  function construirQuery(
+    fechaDesde?: string,
+    fechaHasta?: string,
+  ) {
+    const parametros =
+      new URLSearchParams();
+
+    if (fechaDesde) {
+      parametros.set(
+        'desde',
+        fechaDesde,
+      );
+    }
+
+    if (fechaHasta) {
+      parametros.set(
+        'hasta',
+        fechaHasta,
+      );
+    }
+
+    const query =
+      parametros.toString();
+
+    return query
+      ? `?${query}`
+      : '';
+  }
+
+  async function cargarDatosAnaliticos(
+    token: string,
+    fechaDesde?: string,
+    fechaHasta?: string,
+  ) {
+    const headers = {
+      Authorization:
+        `Bearer ${token}`,
+    };
+
+    const query =
+      construirQuery(
+        fechaDesde,
+        fechaHasta,
+      );
+
+    const [
+      respuestaResumen,
+      respuestaCategorias,
+      respuestaPrioridades,
+      respuestaTecnicos,
+      respuestaMensual,
+    ] = await Promise.all([
+      fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/analitica/resumen${query}`,
+        {
+          headers,
+        },
+      ),
+
+      fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/analitica/categorias${query}`,
+        {
+          headers,
+        },
+      ),
+
+      fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/analitica/prioridades${query}`,
+        {
+          headers,
+        },
+      ),
+
+      fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/analitica/tecnicos${query}`,
+        {
+          headers,
+        },
+      ),
+
+      fetch(
+  `${process.env.NEXT_PUBLIC_API_URL}/analitica/mensual${query}`,
+  {
+    headers,
+  },
+),
+    ]);
+
+    const respuestas = [
+      respuestaResumen,
+      respuestaCategorias,
+      respuestaPrioridades,
+      respuestaTecnicos,
+      respuestaMensual,
+    ];
+
+    const sesionExpirada =
+      respuestas.some(
+        (respuesta) =>
+          respuesta.status === 401,
+      );
+
+    if (sesionExpirada) {
+      localStorage.removeItem(
+        'access_token',
+      );
+
+      router.replace('/');
+
+      return false;
+    }
+
+    const algunaConError =
+      respuestas.some(
+        (respuesta) =>
+          !respuesta.ok,
+      );
+
+    if (algunaConError) {
+      throw new Error(
+        'No fue posible cargar la información analítica.',
+      );
+    }
+
+    const [
+      dataResumen,
+      dataCategorias,
+      dataPrioridades,
+      dataTecnicos,
+      dataMensual,
+    ] = await Promise.all([
+      respuestaResumen.json(),
+      respuestaCategorias.json(),
+      respuestaPrioridades.json(),
+      respuestaTecnicos.json(),
+      respuestaMensual.json(),
+    ]);
+
+    setResumen(dataResumen);
+    setCategorias(dataCategorias);
+    setPrioridades(dataPrioridades);
+    setTecnicos(dataTecnicos);
+    setMensual(dataMensual);
+
+    return true;
+  }
 
   useEffect(() => {
     async function cargarAnalitica() {
@@ -169,114 +341,19 @@ export default function AnaliticaPage() {
           !esSupervisor &&
           !esAdministrador
         ) {
-          router.replace('/dashboard');
+          router.replace(
+            '/dashboard',
+          );
           return;
         }
 
-        setPerfil(perfilNormalizado);
+        setPerfil(
+          perfilNormalizado,
+        );
 
-        const headers = {
-          Authorization:
-            `Bearer ${token}`,
-        };
-
-        const [
-          respuestaResumen,
-          respuestaCategorias,
-          respuestaPrioridades,
-          respuestaTecnicos,
-          respuestaMensual,
-        ] = await Promise.all([
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/analitica/resumen`,
-            {
-              headers,
-            },
-          ),
-
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/analitica/categorias`,
-            {
-              headers,
-            },
-          ),
-
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/analitica/prioridades`,
-            {
-              headers,
-            },
-          ),
-
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/analitica/tecnicos`,
-            {
-              headers,
-            },
-          ),
-
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/analitica/mensual`,
-            {
-              headers,
-            },
-          ),
-        ]);
-
-        const respuestas = [
-          respuestaResumen,
-          respuestaCategorias,
-          respuestaPrioridades,
-          respuestaTecnicos,
-          respuestaMensual,
-        ];
-
-        const sesionExpirada =
-          respuestas.some(
-            (respuesta) =>
-              respuesta.status === 401,
-          );
-
-        if (sesionExpirada) {
-          localStorage.removeItem(
-            'access_token',
-          );
-
-          router.replace('/');
-          return;
-        }
-
-        const algunaConError =
-          respuestas.some(
-            (respuesta) =>
-              !respuesta.ok,
-          );
-
-        if (algunaConError) {
-          throw new Error(
-            'No fue posible cargar la información analítica.',
-          );
-        }
-
-        const [
-          dataResumen,
-          dataCategorias,
-          dataPrioridades,
-          dataTecnicos,
-          dataMensual,
-        ] = await Promise.all([
-          respuestaResumen.json(),
-          respuestaCategorias.json(),
-          respuestaPrioridades.json(),
-          respuestaTecnicos.json(),
-          respuestaMensual.json(),
-        ]);
-
-        setResumen(dataResumen);
-        setCategorias(dataCategorias);
-        setPrioridades(dataPrioridades);
-        setTecnicos(dataTecnicos);
-        setMensual(dataMensual);
+        await cargarDatosAnaliticos(
+          token,
+        );
       } catch (errorCargar) {
         console.error(
           errorCargar,
@@ -291,7 +368,133 @@ export default function AnaliticaPage() {
     }
 
     cargarAnalitica();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  async function aplicarFiltros() {
+    setError('');
+    setMensajeFiltro('');
+
+    if (!desde || !hasta) {
+      setError(
+        'Seleccione una fecha inicial y una fecha final para aplicar el filtro.',
+      );
+      return;
+    }
+
+    if (desde > hasta) {
+      setError(
+        'La fecha inicial no puede ser posterior a la fecha final.',
+      );
+      return;
+    }
+
+    const token =
+      localStorage.getItem(
+        'access_token',
+      );
+
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    try {
+      setCargandoFiltro(true);
+
+      const cargado =
+        await cargarDatosAnaliticos(
+          token,
+          desde,
+          hasta,
+        );
+
+      if (!cargado) {
+        return;
+      }
+
+      setFiltroAplicado({
+        desde,
+        hasta,
+      });
+
+      setMensajeFiltro(
+        'Filtro aplicado correctamente.',
+      );
+    } catch (errorFiltro) {
+      console.error(
+        errorFiltro,
+      );
+
+      setError(
+        'No fue posible aplicar el filtro de fechas.',
+      );
+    } finally {
+      setCargandoFiltro(false);
+    }
+  }
+
+  async function limpiarFiltros() {
+    setError('');
+    setMensajeFiltro('');
+
+    const token =
+      localStorage.getItem(
+        'access_token',
+      );
+
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    try {
+      setCargandoFiltro(true);
+
+      const cargado =
+        await cargarDatosAnaliticos(
+          token,
+        );
+
+      if (!cargado) {
+        return;
+      }
+
+      setDesde('');
+      setHasta('');
+      setFiltroAplicado(null);
+
+      setMensajeFiltro(
+        'Filtro eliminado. Se muestran todos los registros.',
+      );
+    } catch (errorLimpiar) {
+      console.error(
+        errorLimpiar,
+      );
+
+      setError(
+        'No fue posible limpiar el filtro de fechas.',
+      );
+    } finally {
+      setCargandoFiltro(false);
+    }
+  }
+
+  function formatearFechaFiltro(
+    fecha: string,
+  ) {
+    if (!fecha) {
+      return '';
+    }
+
+    const [
+      anio,
+      mes,
+      dia,
+    ] = fecha.split('-');
+
+    return `${dia}/${mes}/${anio}`;
+  }
 
   if (cargando) {
     return (
@@ -338,9 +541,126 @@ export default function AnaliticaPage() {
           </button>
         </div>
 
+        <div className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+            <div>
+              <div className="mb-3 h-1 w-12 rounded-full bg-[#EC2328]" />
+
+              <h2 className="text-lg font-bold text-[#1F4697]">
+                Filtrar por fechas
+              </h2>
+
+              <p className="mt-1 text-sm text-[#61605E]">
+                Consulte la analítica de un período específico.
+              </p>
+            </div>
+
+            <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[180px_180px_auto_auto] lg:items-end">
+              <div>
+                <label
+                  htmlFor="fecha-desde"
+                  className="mb-1.5 block text-sm font-semibold text-slate-700"
+                >
+                  Desde
+                </label>
+
+                <input
+                  id="fecha-desde"
+                  type="date"
+                  value={desde}
+                  onChange={(event) =>
+                    setDesde(
+                      event.target.value,
+                    )
+                  }
+                  disabled={
+                    cargandoFiltro
+                  }
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="fecha-hasta"
+                  className="mb-1.5 block text-sm font-semibold text-slate-700"
+                >
+                  Hasta
+                </label>
+
+                <input
+                  id="fecha-hasta"
+                  type="date"
+                  value={hasta}
+                  onChange={(event) =>
+                    setHasta(
+                      event.target.value,
+                    )
+                  }
+                  disabled={
+                    cargandoFiltro
+                  }
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  aplicarFiltros
+                }
+                disabled={
+                  cargandoFiltro
+                }
+                className="rounded-lg bg-[#1F4697] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#17397c] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cargandoFiltro
+                  ? 'Procesando...'
+                  : 'Aplicar filtros'}
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  limpiarFiltros
+                }
+                disabled={
+                  cargandoFiltro
+                }
+                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+
+          {filtroAplicado && (
+            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-[#1F4697]">
+              Período aplicado:{' '}
+              <span className="font-semibold">
+                {formatearFechaFiltro(
+                  filtroAplicado.desde,
+                )}
+              </span>{' '}
+              al{' '}
+              <span className="font-semibold">
+                {formatearFechaFiltro(
+                  filtroAplicado.hasta,
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {mensajeFiltro && (
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {mensajeFiltro}
           </div>
         )}
 
@@ -351,8 +671,13 @@ export default function AnaliticaPage() {
             </h2>
 
             <p className="mt-1 text-sm text-[#61605E]">
-              Estado actual de los tickets
-              registrados.
+              {filtroAplicado
+                ? `Resultados correspondientes al período del ${formatearFechaFiltro(
+                    filtroAplicado.desde,
+                  )} al ${formatearFechaFiltro(
+                    filtroAplicado.hasta,
+                  )}.`
+                : 'Estado actual de los tickets registrados.'}
             </p>
           </div>
 
@@ -437,7 +762,9 @@ export default function AnaliticaPage() {
                       nombre={
                         categoria.categoria
                       }
-                      total={categoria.total}
+                      total={
+                        categoria.total
+                      }
                       porcentaje={
                         categoria.porcentaje
                       }

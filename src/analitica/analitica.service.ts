@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
 } from '@nestjs/common';
 
@@ -8,6 +9,7 @@ import {
 
 import {
   Repository,
+  SelectQueryBuilder,
 } from 'typeorm';
 
 import {
@@ -22,10 +24,161 @@ export class AnaliticaService {
       Repository<Ticket>,
   ) {}
 
-  async obtenerResumenGeneral() {
+  private esFechaValida(
+    fecha: string,
+  ) {
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        fecha,
+      )
+    ) {
+      return false;
+    }
+
+    const [
+      anio,
+      mes,
+      dia,
+    ] = fecha
+      .split('-')
+      .map(Number);
+
+    const fechaValidacion =
+      new Date(
+        Date.UTC(
+          anio,
+          mes - 1,
+          dia,
+        ),
+      );
+
+    return (
+      fechaValidacion.getUTCFullYear() ===
+        anio &&
+      fechaValidacion.getUTCMonth() ===
+        mes - 1 &&
+      fechaValidacion.getUTCDate() ===
+        dia
+    );
+  }
+
+  private sumarUnDia(
+    fecha: string,
+  ) {
+    const [
+      anio,
+      mes,
+      dia,
+    ] = fecha
+      .split('-')
+      .map(Number);
+
+    const fechaSiguiente =
+      new Date(
+        Date.UTC(
+          anio,
+          mes - 1,
+          dia,
+        ),
+      );
+
+    fechaSiguiente.setUTCDate(
+      fechaSiguiente.getUTCDate() + 1,
+    );
+
+    return fechaSiguiente
+      .toISOString()
+      .slice(0, 10);
+  }
+
+  private validarRangoFechas(
+    desde?: string,
+    hasta?: string,
+  ) {
+    if (
+      desde &&
+      !this.esFechaValida(desde)
+    ) {
+      throw new BadRequestException(
+        'La fecha desde debe tener el formato YYYY-MM-DD.',
+      );
+    }
+
+    if (
+      hasta &&
+      !this.esFechaValida(hasta)
+    ) {
+      throw new BadRequestException(
+        'La fecha hasta debe tener el formato YYYY-MM-DD.',
+      );
+    }
+
+    if (
+      desde &&
+      hasta &&
+      desde > hasta
+    ) {
+      throw new BadRequestException(
+        'La fecha desde no puede ser mayor que la fecha hasta.',
+      );
+    }
+  }
+
+  private aplicarFiltroFechas(
+    queryBuilder:
+      SelectQueryBuilder<Ticket>,
+    desde?: string,
+    hasta?: string,
+  ) {
+    this.validarRangoFechas(
+      desde,
+      hasta,
+    );
+
+    if (desde) {
+      queryBuilder.andWhere(
+        'ticket.fechaCreacion >= :desde',
+        {
+          desde:
+            `${desde} 00:00:00`,
+        },
+      );
+    }
+
+    if (hasta) {
+      const diaSiguiente =
+        this.sumarUnDia(
+          hasta,
+        );
+
+      queryBuilder.andWhere(
+        'ticket.fechaCreacion < :hasta',
+        {
+          hasta:
+            `${diaSiguiente} 00:00:00`,
+        },
+      );
+    }
+
+    return queryBuilder;
+  }
+
+  async obtenerResumenGeneral(
+    desde?: string,
+    hasta?: string,
+  ) {
+    const query =
+      this.ticketRepository
+        .createQueryBuilder('ticket');
+
+    this.aplicarFiltroFechas(
+      query,
+      desde,
+      hasta,
+    );
+
     const resultado =
-      await this.ticketRepository
-        .createQueryBuilder('ticket')
+      await query
         .select(
           'COUNT(ticket.idTicket)',
           'total',
@@ -129,14 +282,26 @@ export class AnaliticaService {
     };
   }
 
-  async obtenerTicketsPorCategoria() {
-    const resultados =
-      await this.ticketRepository
+  async obtenerTicketsPorCategoria(
+    desde?: string,
+    hasta?: string,
+  ) {
+    const query =
+      this.ticketRepository
         .createQueryBuilder('ticket')
         .leftJoin(
           'ticket.categoria',
           'categoria',
-        )
+        );
+
+    this.aplicarFiltroFechas(
+      query,
+      desde,
+      hasta,
+    );
+
+    const resultados =
+      await query
         .select(
           'ticket.idCategoria',
           'idCategoria',
@@ -205,14 +370,26 @@ export class AnaliticaService {
     );
   }
 
-  async obtenerTicketsPorPrioridad() {
-    const resultados =
-      await this.ticketRepository
+  async obtenerTicketsPorPrioridad(
+    desde?: string,
+    hasta?: string,
+  ) {
+    const query =
+      this.ticketRepository
         .createQueryBuilder('ticket')
         .leftJoin(
           'ticket.prioridad',
           'prioridad',
-        )
+        );
+
+    this.aplicarFiltroFechas(
+      query,
+      desde,
+      hasta,
+    );
+
+    const resultados =
+      await query
         .select(
           'ticket.idPrioridad',
           'idPrioridad',
@@ -229,7 +406,7 @@ export class AnaliticaService {
           'COUNT(ticket.idTicket)',
           'total',
         )
-        .where(
+        .andWhere(
           'ticket.idPrioridad IS NOT NULL',
         )
         .groupBy(
@@ -296,14 +473,26 @@ export class AnaliticaService {
     );
   }
 
-  async obtenerTicketsPorTecnico() {
-    const resultados =
-      await this.ticketRepository
+  async obtenerTicketsPorTecnico(
+    desde?: string,
+    hasta?: string,
+  ) {
+    const query =
+      this.ticketRepository
         .createQueryBuilder('ticket')
         .leftJoin(
           'ticket.tecnico',
           'tecnico',
-        )
+        );
+
+    this.aplicarFiltroFechas(
+      query,
+      desde,
+      hasta,
+    );
+
+    const resultados =
+      await query
         .select(
           'ticket.idTecnico',
           'idTecnico',
@@ -376,7 +565,7 @@ export class AnaliticaService {
           )`,
           'cerrados',
         )
-        .where(
+        .andWhere(
           'ticket.idTecnico IS NOT NULL',
         )
         .groupBy(
@@ -439,10 +628,22 @@ export class AnaliticaService {
     );
   }
 
-  async obtenerHistoricoMensual() {
+  async obtenerHistoricoMensual(
+    desde?: string,
+    hasta?: string,
+  ) {
+    const query =
+      this.ticketRepository
+        .createQueryBuilder('ticket');
+
+    this.aplicarFiltroFechas(
+      query,
+      desde,
+      hasta,
+    );
+
     const resultados =
-      await this.ticketRepository
-        .createQueryBuilder('ticket')
+      await query
         .select(
           'YEAR(ticket.fechaCreacion)',
           'anio',
