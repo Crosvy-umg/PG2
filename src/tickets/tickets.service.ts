@@ -61,6 +61,7 @@ export class TicketsService {
         order: {
           idTicket: 'DESC',
         },
+
         take: 1,
       });
 
@@ -271,6 +272,105 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException(
         'El ticket no existe',
+      );
+    }
+
+    /*
+     * Un ticket que ya se encuentra
+     * Resuelto o Cerrado no puede
+     * modificarse nuevamente desde
+     * la gestión de atención.
+     *
+     * 5 = Resuelto
+     * 6 = Cerrado
+     *
+     * Un ticket Resuelto solamente
+     * puede regresar a atención mediante
+     * el proceso de reapertura realizado
+     * por el solicitante.
+     *
+     * Un ticket Cerrado ya terminó
+     * completamente su ciclo.
+     */
+    if (
+  ticket.idEstado === 4 ||
+  ticket.idEstado === 5 ||
+  ticket.idEstado === 6
+) {
+  throw new BadRequestException(
+    'Un ticket Pendiente, Resuelto o Cerrado no puede modificarse desde la gestión de atención',
+  );
+}
+
+    /*
+     * Desde la gestión de atención
+     * únicamente se permite colocar
+     * el ticket en:
+     *
+     * 2 = En revisión
+     * 3 = En atención
+     *
+     * Pendiente y Resuelto deben
+     * utilizar el flujo de cambio
+     * de estado del técnico.
+     *
+     * Cerrado únicamente se alcanza
+     * cuando el solicitante confirma
+     * la resolución.
+     */
+    const estadosPermitidosAtencion = [
+      2,
+      3,
+    ];
+
+    if (
+      !estadosPermitidosAtencion.includes(
+        updateAtencionTicketDto.idEstado,
+      )
+    ) {
+      throw new BadRequestException(
+        'Desde la gestión de atención solo se puede colocar el ticket En revisión o En atención',
+      );
+    }
+
+    /*
+     * Validamos que el usuario
+     * seleccionado como técnico exista.
+     */
+    const tecnico =
+      await this.userRepository.findOne({
+        where: {
+          id:
+            updateAtencionTicketDto.idTecnico,
+        },
+      });
+
+    if (!tecnico) {
+      throw new BadRequestException(
+        'El técnico seleccionado no existe',
+      );
+    }
+
+    /*
+     * El usuario seleccionado debe
+     * encontrarse activo.
+     */
+    if (!tecnico.activo) {
+      throw new BadRequestException(
+        'El técnico seleccionado está inactivo',
+      );
+    }
+
+    /*
+     * Solo un usuario con rol Técnico
+     * puede quedar asignado como
+     * responsable de un ticket.
+     *
+     * idRol 2 = Técnico
+     */
+    if (tecnico.idRol !== 2) {
+      throw new BadRequestException(
+        'El usuario seleccionado no tiene rol de Técnico',
       );
     }
 
