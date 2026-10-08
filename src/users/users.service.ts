@@ -20,6 +20,37 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto) {
+    /*
+     * Validamos que el rol recibido
+     * corresponda a uno de los roles
+     * existentes en el sistema.
+     *
+     * 1 = Solicitante
+     * 2 = Técnico
+     * 6 = Supervisor
+     * 7 = Administrador
+     */
+    const rolesPermitidos = [
+      1,
+      2,
+      6,
+      7,
+    ];
+
+    if (
+      !rolesPermitidos.includes(
+        createUserDto.idRol,
+      )
+    ) {
+      throw new BadRequestException(
+        'El rol seleccionado no existe',
+      );
+    }
+
+    /*
+     * Verificamos que no exista otro
+     * usuario con el mismo nombre.
+     */
     const usuarioExistente =
       await this.userRepository.findOne({
         where: {
@@ -33,6 +64,10 @@ export class UsersService {
       );
     }
 
+    /*
+     * Ciframos la contraseña antes
+     * de almacenarla en la base de datos.
+     */
     const contraseniaCifrada =
       await bcrypt.hash(
         createUserDto.contrasenia,
@@ -51,6 +86,10 @@ export class UsersService {
         nuevoUsuario,
       );
 
+    /*
+     * No devolvemos la contraseña
+     * ni el hash almacenado.
+     */
     return {
       id: usuarioGuardado.id,
       usuario: usuarioGuardado.usuario,
@@ -131,6 +170,10 @@ export class UsersService {
       );
     }
 
+    /*
+     * El administrador no puede
+     * desactivar su propia cuenta.
+     */
     if (
       idUsuario === idAdministrador &&
       updateUserStatusDto.activo === false
@@ -140,6 +183,11 @@ export class UsersService {
       );
     }
 
+    /*
+     * Evitamos realizar una actualización
+     * cuando el usuario ya tiene el estado
+     * solicitado.
+     */
     if (
       usuario.activo ===
       updateUserStatusDto.activo
