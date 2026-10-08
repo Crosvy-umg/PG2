@@ -119,6 +119,22 @@ export class PrioridadesService {
       );
     }
 
+    /*
+     * Evitamos realizar una actualización
+     * cuando la prioridad ya tiene el estado
+     * solicitado.
+     */
+    if (
+      prioridad.activo ===
+      updatePrioridadStatusDto.activo
+    ) {
+      throw new BadRequestException(
+        updatePrioridadStatusDto.activo
+          ? 'La prioridad ya se encuentra activa'
+          : 'La prioridad ya se encuentra inactiva',
+      );
+    }
+
     prioridad.activo =
       updatePrioridadStatusDto.activo;
 
