@@ -84,6 +84,22 @@ export class CategoriasService {
       );
     }
 
+    /*
+     * Evitamos realizar una actualización
+     * cuando la categoría ya tiene el estado
+     * solicitado.
+     */
+    if (
+      categoria.activo ===
+      updateCategoriaStatusDto.activo
+    ) {
+      throw new BadRequestException(
+        updateCategoriaStatusDto.activo
+          ? 'La categoría ya se encuentra activa'
+          : 'La categoría ya se encuentra inactiva',
+      );
+    }
+
     categoria.activo =
       updateCategoriaStatusDto.activo;
 
