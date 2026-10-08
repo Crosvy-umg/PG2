@@ -24,6 +24,8 @@ import { ReabrirTicketDto } from './dto/reabrir-ticket.dto';
 
 import { Prioridad } from '../prioridades/entities/prioridad.entity';
 
+import { Categoria } from '../categorias/entities/categoria.entity';
+
 import { User } from '../users/entities/user.entity';
 
 import { BitacoraService } from '../bitacora/bitacora.service';
@@ -41,6 +43,10 @@ export class TicketsService {
     private readonly prioridadRepository:
       Repository<Prioridad>,
 
+    @InjectRepository(Categoria)
+    private readonly categoriaRepository:
+      Repository<Categoria>,
+
     @InjectRepository(User)
     private readonly userRepository:
       Repository<User>,
@@ -56,6 +62,34 @@ export class TicketsService {
     createTicketDto: CreateTicketDto,
     idSolicitante: number,
   ) {
+    /*
+     * Validamos que la categoría
+     * seleccionada exista.
+     */
+    const categoria =
+      await this.categoriaRepository.findOne({
+        where: {
+          idCategoria:
+            createTicketDto.idCategoria,
+        },
+      });
+
+    if (!categoria) {
+      throw new BadRequestException(
+        'La categoría seleccionada no existe',
+      );
+    }
+
+    /*
+     * Una categoría inactiva no puede
+     * utilizarse para crear nuevos tickets.
+     */
+    if (!categoria.activo) {
+      throw new BadRequestException(
+        'La categoría seleccionada está inactiva',
+      );
+    }
+
     const ultimosTickets =
       await this.ticketRepository.find({
         order: {
@@ -277,30 +311,19 @@ export class TicketsService {
 
     /*
      * Un ticket que ya se encuentra
-     * Resuelto o Cerrado no puede
-     * modificarse nuevamente desde
-     * la gestión de atención.
-     *
-     * 5 = Resuelto
-     * 6 = Cerrado
-     *
-     * Un ticket Resuelto solamente
-     * puede regresar a atención mediante
-     * el proceso de reapertura realizado
-     * por el solicitante.
-     *
-     * Un ticket Cerrado ya terminó
-     * completamente su ciclo.
+     * Pendiente, Resuelto o Cerrado
+     * no puede modificarse nuevamente
+     * desde la gestión de atención.
      */
     if (
-  ticket.idEstado === 4 ||
-  ticket.idEstado === 5 ||
-  ticket.idEstado === 6
-) {
-  throw new BadRequestException(
-    'Un ticket Pendiente, Resuelto o Cerrado no puede modificarse desde la gestión de atención',
-  );
-}
+      ticket.idEstado === 4 ||
+      ticket.idEstado === 5 ||
+      ticket.idEstado === 6
+    ) {
+      throw new BadRequestException(
+        'Un ticket Pendiente, Resuelto o Cerrado no puede modificarse desde la gestión de atención',
+      );
+    }
 
     /*
      * Desde la gestión de atención
@@ -309,14 +332,6 @@ export class TicketsService {
      *
      * 2 = En revisión
      * 3 = En atención
-     *
-     * Pendiente y Resuelto deben
-     * utilizar el flujo de cambio
-     * de estado del técnico.
-     *
-     * Cerrado únicamente se alcanza
-     * cuando el solicitante confirma
-     * la resolución.
      */
     const estadosPermitidosAtencion = [
       2,
@@ -569,10 +584,6 @@ export class TicketsService {
     /*
      * El cierre ya no corresponde
      * directamente al técnico.
-     *
-     * El solicitante debe confirmar
-     * la solución cuando el ticket
-     * esté en Resuelto.
      */
     if (
       estadoNuevo === 6
@@ -582,13 +593,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Transiciones disponibles
-     * para el técnico.
-     *
-     * Estado 5 (Resuelto) no posee
-     * transiciones desde este método.
-     */
     const transicionesPermitidas: Record<
       number,
       number[]
@@ -619,11 +623,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Si el técnico marca el ticket
-     * como Resuelto, debe registrar
-     * obligatoriamente la solución.
-     */
     let resolucionLimpia:
       string | null = null;
 
@@ -660,13 +659,6 @@ export class TicketsService {
       ] ??
       `ID ${estadoActual}`;
 
-    /*
-     * Si pasa a Resuelto:
-     *
-     * - Guardamos la solución.
-     * - Guardamos la fecha de resolución.
-     * - Todavía NO guardamos fecha de cierre.
-     */
     if (
       estadoNuevo === 5
     ) {
@@ -715,9 +707,6 @@ export class TicketsService {
       ] ??
       `ID ${estadoNuevo}`;
 
-    /*
-     * Bitácora.
-     */
     if (
       estadoNuevo === 5
     ) {
@@ -742,12 +731,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Notificación al solicitante.
-     *
-     * Cuando llegue a Resuelto,
-     * solicitamos su confirmación.
-     */
     if (
       estadoNuevo === 5
     ) {
@@ -798,10 +781,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Solo el solicitante dueño
-     * del ticket puede confirmar.
-     */
     if (
       ticket.idSolicitante !==
       idSolicitante
@@ -811,10 +790,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Solo puede confirmarse cuando
-     * se encuentra en Resuelto.
-     */
     if (
       ticket.idEstado !== 5
     ) {
@@ -831,11 +806,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Confirmación:
-     *
-     * Resuelto -> Cerrado
-     */
     await this.ticketRepository.update(
       idTicket,
       {
@@ -859,9 +829,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Bitácora.
-     */
     await this.bitacoraService.registrar(
       idTicket,
 
@@ -872,10 +839,6 @@ export class TicketsService {
       'El solicitante confirmó que la solución fue satisfactoria. El ticket pasó de Resuelto a Cerrado.',
     );
 
-    /*
-     * Notificamos al técnico
-     * responsable.
-     */
     if (
       ticket.idTecnico
     ) {
@@ -921,11 +884,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Solo el solicitante dueño
-     * del ticket puede rechazar
-     * la solución.
-     */
     if (
       ticket.idSolicitante !==
       idSolicitante
@@ -935,10 +893,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Solo un ticket Resuelto
-     * puede regresar a atención.
-     */
     if (
       ticket.idEstado !== 5
     ) {
@@ -957,22 +911,10 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Guardamos la solución anterior
-     * para registrarla en bitácora
-     * antes de limpiar los campos.
-     */
     const resolucionAnterior =
       ticket.resolucion?.trim() ??
       'Sin solución registrada';
 
-    /*
-     * El ticket regresa a atención.
-     *
-     * Limpiamos la resolución actual
-     * para que el técnico deba registrar
-     * una nueva cuando vuelva a resolverlo.
-     */
     await this.ticketRepository.update(
       idTicket,
       {
@@ -999,9 +941,6 @@ export class TicketsService {
       );
     }
 
-    /*
-     * Bitácora.
-     */
     await this.bitacoraService.registrar(
       idTicket,
 
@@ -1012,9 +951,6 @@ export class TicketsService {
       `El solicitante indicó que el problema continúa. Motivo: ${motivo}. Solución propuesta anteriormente: ${resolucionAnterior}. El ticket regresó de Resuelto a En atención.`,
     );
 
-    /*
-     * Notificamos al técnico.
-     */
     if (
       ticket.idTecnico
     ) {

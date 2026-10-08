@@ -6,6 +6,7 @@ import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
 
 import { Prioridad } from '../prioridades/entities/prioridad.entity';
+import { Categoria } from '../categorias/entities/categoria.entity';
 import { User } from '../users/entities/user.entity';
 
 import { AuthModule } from '../auth/auth.module';
@@ -17,6 +18,7 @@ import { NotificacionesModule } from '../notificaciones/notificaciones.module';
     TypeOrmModule.forFeature([
       Ticket,
       Prioridad,
+      Categoria,
       User,
     ]),
 
