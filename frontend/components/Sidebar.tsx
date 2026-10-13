@@ -1,7 +1,10 @@
 'use client';
 
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import {
+  usePathname,
+  useRouter,
+} from 'next/navigation';
 
 interface SidebarProps {
   rol: string;
@@ -19,6 +22,7 @@ export default function Sidebar({
   idRol,
 }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const esSolicitante =
     idRol === 1 ||
@@ -64,6 +68,11 @@ export default function Sidebar({
       ruta: '/tickets/asignados',
       visible: esTecnico,
     },
+    {
+  nombre: 'Tickets disponibles',
+  ruta: '/tickets/disponibles',
+  visible: esTecnico,
+},
 
     {
       nombre: 'Gestionar tickets',
@@ -166,10 +175,10 @@ export default function Sidebar({
   }
 
   function navegar(
-    ruta: string,
-  ) {
-    window.location.href = ruta;
-  }
+  ruta: string,
+) {
+  router.push(ruta);
+}
 
   return (
     <aside className="hidden min-h-screen w-64 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">

@@ -94,6 +94,50 @@ export class TicketsController {
   }
 
   /*
+   * Tickets disponibles para
+   * autoasignación del técnico.
+   *
+   * Solo devuelve tickets
+   * sin técnico asignado y que
+   * todavía pueden ser tomados.
+   */
+  @Get('disponibles')
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles('Técnico')
+  findAvailableTickets() {
+    return this.ticketsService.findDisponibles();
+  }
+
+  /*
+   * El técnico autenticado toma
+   * un ticket disponible.
+   */
+  @Patch(':id/asignarme')
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles('Técnico')
+  asignarmeTicket(
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
+    idTicket: number,
+
+    @Req()
+    request: any,
+  ) {
+    return this.ticketsService.asignarmeTicket(
+      idTicket,
+      request.user.sub,
+    );
+  }
+
+  /*
    * Consultar bitácora
    * de un ticket.
    */
