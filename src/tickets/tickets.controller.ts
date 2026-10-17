@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,10 +8,39 @@ import {
   Patch,
   Post,
   Req,
+  Res,
+  StreamableFile,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 
+import {
+  FilesInterceptor,
+} from '@nestjs/platform-express';
+
+import {
+  diskStorage,
+} from 'multer';
+
+import {
+  extname,
+  resolve,
+} from 'path';
+
+import {
+  createReadStream,
+  existsSync,
+  mkdirSync,
+} from 'fs';
+
+import type {
+  Response,
+} from 'express';
+
 import { TicketsService } from './tickets.service';
+
+import { AdjuntosTicketService } from './adjuntos-ticket.service';
 
 import { CreateTicketDto } from './dto/create-ticket.dto';
 
@@ -26,11 +56,26 @@ import { RolesGuard } from '../auth/roles.guard';
 
 import { Roles } from '../auth/roles.decorator';
 
+const carpetaAdjuntos =
+  './uploads/tickets';
+
+if (!existsSync(carpetaAdjuntos)) {
+  mkdirSync(
+    carpetaAdjuntos,
+    {
+      recursive: true,
+    },
+  );
+}
+
 @Controller('tickets')
 export class TicketsController {
   constructor(
     private readonly ticketsService:
       TicketsService,
+
+    private readonly adjuntosTicketService:
+      AdjuntosTicketService,
   ) {}
 
   /*
@@ -96,10 +141,6 @@ export class TicketsController {
   /*
    * Tickets disponibles para
    * autoasignación del técnico.
-   *
-   * Solo devuelve tickets
-   * sin técnico asignado y que
-   * todavía pueden ser tomados.
    */
   @Get('disponibles')
   @UseGuards(
@@ -109,6 +150,236 @@ export class TicketsController {
   @Roles('Técnico')
   findAvailableTickets() {
     return this.ticketsService.findDisponibles();
+  }
+
+  /*
+   * Agregar archivos adjuntos.
+   */
+  @Post(':id/adjuntos')
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles(
+    'Solicitante',
+    'Técnico',
+    'Supervisor',
+    'Administrador',
+  )
+  @UseInterceptors(
+    FilesInterceptor(
+      'archivos',
+      5,
+      {
+        storage: diskStorage({
+          destination: (
+            req,
+            file,
+            callback,
+          ) => {
+            callback(
+              null,
+              carpetaAdjuntos,
+            );
+          },
+
+          filename: (
+            req,
+            file,
+            callback,
+          ) => {
+            const extension =
+              extname(
+                file.originalname,
+              ).toLowerCase();
+
+            const nombreArchivo =
+              `${Date.now()}-${Math.round(
+                Math.random() *
+                1000000000,
+              )}${extension}`;
+
+            callback(
+              null,
+              nombreArchivo,
+            );
+          },
+        }),
+
+        limits: {
+          fileSize:
+            10 * 1024 * 1024,
+        },
+
+        fileFilter: (
+          req,
+          file,
+          callback,
+        ) => {
+          const tiposPermitidos = [
+            'image/jpeg',
+            'image/png',
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          ];
+
+          if (
+            !tiposPermitidos.includes(
+              file.mimetype,
+            )
+          ) {
+            return callback(
+              new BadRequestException(
+                'Tipo de archivo no permitido.',
+              ),
+              false,
+            );
+          }
+
+          callback(
+            null,
+            true,
+          );
+        },
+      },
+    ),
+  )
+  agregarAdjuntos(
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
+    idTicket: number,
+
+    @UploadedFiles()
+    archivos:
+      Express.Multer.File[],
+
+    @Req()
+    request: any,
+  ) {
+    return this.adjuntosTicketService.guardarAdjuntos(
+      idTicket,
+      archivos,
+      request.user.sub,
+      request.user.rol,
+    );
+  }
+
+  /*
+   * Consultar adjuntos.
+   */
+  @Get(':id/adjuntos')
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles(
+    'Solicitante',
+    'Técnico',
+    'Supervisor',
+    'Administrador',
+  )
+  listarAdjuntos(
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
+    idTicket: number,
+
+    @Req()
+    request: any,
+  ) {
+    return this.adjuntosTicketService.listarAdjuntos(
+      idTicket,
+      request.user.sub,
+      request.user.rol,
+    );
+  }
+
+  /*
+   * Abrir o descargar
+   * un archivo adjunto.
+   */
+  @Get(
+    ':id/adjuntos/:idAdjunto/archivo',
+  )
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+  @Roles(
+    'Solicitante',
+    'Técnico',
+    'Supervisor',
+    'Administrador',
+  )
+  async abrirAdjunto(
+    @Param(
+      'id',
+      ParseIntPipe,
+    )
+    idTicket: number,
+
+    @Param(
+      'idAdjunto',
+      ParseIntPipe,
+    )
+    idAdjunto: number,
+
+    @Req()
+    request: any,
+
+    @Res({
+      passthrough: true,
+    })
+    response: Response,
+  ) {
+    const adjunto =
+      await this.adjuntosTicketService.obtenerArchivo(
+        idTicket,
+        idAdjunto,
+        request.user.sub,
+        request.user.rol,
+      );
+
+    const rutaCompleta =
+      resolve(
+        process.cwd(),
+        adjunto.ruta,
+      );
+
+    if (
+      !existsSync(
+        rutaCompleta,
+      )
+    ) {
+      throw new BadRequestException(
+        'El archivo físico no se encuentra disponible.',
+      );
+    }
+
+    response.set({
+      'Content-Type':
+        adjunto.tipoMime,
+
+      'Content-Disposition':
+        `inline; filename*=UTF-8''${encodeURIComponent(
+          adjunto.nombreOriginal,
+        )}`,
+    });
+
+    const archivo =
+      createReadStream(
+        rutaCompleta,
+      );
+
+    return new StreamableFile(
+      archivo,
+    );
   }
 
   /*
@@ -138,8 +409,7 @@ export class TicketsController {
   }
 
   /*
-   * Consultar bitácora
-   * de un ticket.
+   * Consultar bitácora.
    */
   @Get(':id/bitacora')
   @UseGuards(
@@ -170,8 +440,7 @@ export class TicketsController {
   }
 
   /*
-   * Consultar detalle
-   * de un ticket.
+   * Consultar detalle.
    */
   @Get(':id')
   @UseGuards(
@@ -219,8 +488,7 @@ export class TicketsController {
   }
 
   /*
-   * Asignar técnico,
-   * prioridad y estado.
+   * Gestionar atención.
    */
   @Patch(':id/atencion')
   @UseGuards(
@@ -254,13 +522,7 @@ export class TicketsController {
   }
 
   /*
-   * Cambio de estado realizado
-   * por el técnico asignado.
-   *
-   * En atención -> Pendiente
-   * En atención -> Resuelto
-   * Pendiente -> En atención
-   * Pendiente -> Resuelto
+   * Cambio de estado.
    */
   @Patch(':id/estado')
   @UseGuards(
@@ -290,10 +552,7 @@ export class TicketsController {
   }
 
   /*
-   * El solicitante confirma
-   * que la solución funcionó.
-   *
-   * Resuelto -> Cerrado
+   * Confirmar resolución.
    */
   @Patch(
     ':id/confirmar-resolucion',
@@ -320,11 +579,7 @@ export class TicketsController {
   }
 
   /*
-   * El solicitante indica que
-   * la solución no resolvió
-   * el problema.
-   *
-   * Resuelto -> En atención
+   * Reabrir ticket.
    */
   @Patch(':id/reabrir')
   @UseGuards(

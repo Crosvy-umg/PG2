@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  ChangeEvent,
   FormEvent,
   useCallback,
   useEffect,
@@ -59,6 +60,9 @@ export default function NuevoTicketPage() {
 
   const [idCategoria, setIdCategoria] =
     useState('');
+
+  const [archivos, setArchivos] =
+    useState<File[]>([]);
 
   const [cargando, setCargando] =
     useState(true);
@@ -190,6 +194,77 @@ export default function NuevoTicketPage() {
     cargarDatos();
   }, [cargarDatos]);
 
+  function seleccionarArchivos(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    setMensaje('');
+    setMensajeExito('');
+
+    const seleccionados =
+      Array.from(
+        event.target.files ?? [],
+      );
+
+    if (seleccionados.length > 5) {
+      setMensaje(
+        'Puede adjuntar un máximo de 5 archivos.',
+      );
+
+      event.target.value = '';
+      setArchivos([]);
+      return;
+    }
+
+    const tamanoMaximo =
+      10 * 1024 * 1024;
+
+    const tiposPermitidos = [
+      'image/jpeg',
+      'image/png',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+
+    const archivoMuyGrande =
+      seleccionados.find(
+        (archivo) =>
+          archivo.size > tamanoMaximo,
+      );
+
+    if (archivoMuyGrande) {
+      setMensaje(
+        `El archivo "${archivoMuyGrande.name}" supera el límite de 10 MB.`,
+      );
+
+      event.target.value = '';
+      setArchivos([]);
+      return;
+    }
+
+    const archivoNoPermitido =
+      seleccionados.find(
+        (archivo) =>
+          !tiposPermitidos.includes(
+            archivo.type,
+          ),
+      );
+
+    if (archivoNoPermitido) {
+      setMensaje(
+        `El archivo "${archivoNoPermitido.name}" tiene un formato no permitido.`,
+      );
+
+      event.target.value = '';
+      setArchivos([]);
+      return;
+    }
+
+    setArchivos(seleccionados);
+  }
+
   async function crearTicket(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -299,8 +374,70 @@ export default function NuevoTicketPage() {
       const ticketCreado: TicketCreado =
         await respuesta.json();
 
+      if (archivos.length > 0) {
+        const formData =
+          new FormData();
+
+        archivos.forEach(
+          (archivo) => {
+            formData.append(
+              'archivos',
+              archivo,
+            );
+          },
+        );
+
+        const respuestaAdjuntos =
+          await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/tickets/${ticketCreado.idTicket}/adjuntos`,
+            {
+              method: 'POST',
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body: formData,
+            },
+          );
+
+        if (!respuestaAdjuntos.ok) {
+          const errorAdjuntos =
+            await respuestaAdjuntos
+              .json()
+              .catch(() => null);
+
+          setMensaje(
+            errorAdjuntos?.message
+              ? Array.isArray(
+                  errorAdjuntos.message,
+                )
+                ? errorAdjuntos.message.join(
+                    ', ',
+                  )
+                : errorAdjuntos.message
+              : 'El ticket fue creado, pero no fue posible cargar los archivos adjuntos.',
+          );
+
+          setMensajeExito(
+            `${ticketCreado.codigo} fue creado correctamente.`,
+          );
+
+          setTimeout(() => {
+            router.push(
+              `/tickets/${ticketCreado.idTicket}`,
+            );
+          }, 2200);
+
+          return;
+        }
+      }
+
       setMensajeExito(
-        `${ticketCreado.codigo} fue creado correctamente.`,
+        archivos.length > 0
+          ? `${ticketCreado.codigo} fue creado correctamente con ${archivos.length} archivo(s) adjunto(s).`
+          : `${ticketCreado.codigo} fue creado correctamente.`,
       );
 
       setTitulo('');
@@ -308,6 +445,7 @@ export default function NuevoTicketPage() {
       setImpacto('');
       setUrgencia('');
       setIdCategoria('');
+      setArchivos([]);
 
       setTimeout(() => {
         router.push(
@@ -427,6 +565,64 @@ export default function NuevoTicketPage() {
                   placeholder="Explique detalladamente el problema que está presentando."
                   className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100"
                 />
+              </div>
+
+              {/* ARCHIVOS ADJUNTOS */}
+
+              <div className="mb-5">
+                <label
+                  htmlFor="archivos"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Archivos adjuntos
+                </label>
+
+                <input
+                  id="archivos"
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={seleccionarArchivos}
+                  className="block w-full cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:font-semibold file:text-[#1F4697] hover:file:bg-blue-100"
+                />
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Puede adjuntar hasta 5 archivos. Formatos permitidos:
+                  JPG, PNG, PDF, DOC, DOCX, XLS y XLSX. Máximo 10 MB
+                  por archivo.
+                </p>
+
+                {archivos.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-semibold text-slate-600">
+                      Archivos seleccionados:
+                    </p>
+
+                    <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                      {archivos.map(
+                        (archivo) => (
+                          <li
+                            key={`${archivo.name}-${archivo.size}`}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span className="truncate">
+                              {archivo.name}
+                            </span>
+
+                            <span className="shrink-0 text-xs text-slate-400">
+                              {(
+                                archivo.size /
+                                1024 /
+                                1024
+                              ).toFixed(2)}{' '}
+                              MB
+                            </span>
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">

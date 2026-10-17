@@ -4,6 +4,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -12,6 +13,7 @@ import { User } from '../../users/entities/user.entity';
 import { Categoria } from '../../categorias/entities/categoria.entity';
 import { Prioridad } from '../../prioridades/entities/prioridad.entity';
 import { Estado } from '../../estados/entities/estado.entity';
+import { AdjuntoTicket } from './adjunto-ticket.entity';
 
 @Entity('tickets')
 export class Ticket {
@@ -130,4 +132,10 @@ export class Ticket {
   })
   @JoinColumn({ name: 'idEstado' })
   estado: Estado;
+
+  @OneToMany(
+    () => AdjuntoTicket,
+    (adjunto) => adjunto.ticket,
+  )
+  adjuntos: AdjuntoTicket[];
 }

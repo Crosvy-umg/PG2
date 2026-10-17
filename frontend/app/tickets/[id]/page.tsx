@@ -1,6 +1,9 @@
 'use client';
 
 import {
+  ChangeEvent,
+  ClipboardEvent,
+  DragEvent,
   useCallback,
   useEffect,
   useState,
@@ -94,6 +97,23 @@ interface Comentario {
   };
 }
 
+interface Adjunto {
+  idAdjunto: number;
+  idTicket: number;
+  nombreOriginal: string;
+  nombreArchivo: string;
+  tipoMime: string;
+  tamano: number;
+  ruta: string;
+  idUsuario: number;
+  fechaCreacion: string;
+
+  usuario?: {
+    id: number;
+    usuario: string;
+  };
+}
+
 interface OpcionEstado {
   idEstado: number;
   nombre: string;
@@ -118,6 +138,49 @@ export default function DetalleTicketPage() {
 
   const [comentarios, setComentarios] =
     useState<Comentario[]>([]);
+
+  const [adjuntos, setAdjuntos] =
+    useState<Adjunto[]>([]);
+
+  const [
+    abriendoAdjunto,
+    setAbriendoAdjunto,
+  ] = useState<number | null>(null);
+
+  const [
+    adjuntoVista,
+    setAdjuntoVista,
+  ] = useState<Adjunto | null>(null);
+
+  const [
+    urlVistaAdjunto,
+    setUrlVistaAdjunto,
+  ] = useState('');
+
+  const [
+    archivosPendientes,
+    setArchivosPendientes,
+  ] = useState<File[]>([]);
+
+  const [
+    subiendoAdjuntos,
+    setSubiendoAdjuntos,
+  ] = useState(false);
+
+  const [
+    arrastrandoAdjunto,
+    setArrastrandoAdjunto,
+  ] = useState(false);
+
+  const [
+    mensajeAdjuntos,
+    setMensajeAdjuntos,
+  ] = useState('');
+
+  const [
+    mensajeAdjuntosExito,
+    setMensajeAdjuntosExito,
+  ] = useState('');
 
   const [cargando, setCargando] =
     useState(true);
@@ -274,11 +337,13 @@ export default function DetalleTicketPage() {
          * - Ticket
          * - Bitácora
          * - Comentarios
+         * - Adjuntos
          */
         const [
           respuestaTicket,
           respuestaBitacora,
           respuestaComentarios,
+          respuestaAdjuntos,
         ] = await Promise.all([
           fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}`,
@@ -302,6 +367,16 @@ export default function DetalleTicketPage() {
 
           fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/comentarios`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            },
+          ),
+
+          fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/adjuntos`,
             {
               headers: {
                 Authorization:
@@ -368,6 +443,18 @@ export default function DetalleTicketPage() {
           );
         } else {
           setComentarios([]);
+        }
+
+        if (respuestaAdjuntos.ok) {
+          const adjuntosData:
+            Adjunto[] =
+            await respuestaAdjuntos.json();
+
+          setAdjuntos(
+            adjuntosData,
+          );
+        } else {
+          setAdjuntos([]);
         }
       } catch {
         setMensaje(
@@ -867,6 +954,458 @@ export default function DetalleTicketPage() {
     }
   }
 
+  const tiposAdjuntosPermitidos = [
+    'image/jpeg',
+    'image/png',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ];
+
+  const tamanoMaximoAdjunto =
+    10 * 1024 * 1024;
+
+  function agregarArchivosPendientes(
+    nuevosArchivos: File[],
+  ) {
+    setMensajeAdjuntos('');
+    setMensajeAdjuntosExito('');
+
+    if (nuevosArchivos.length === 0) {
+      return;
+    }
+
+    const archivoNoPermitido =
+      nuevosArchivos.find(
+        (archivo) =>
+          !tiposAdjuntosPermitidos.includes(
+            archivo.type,
+          ),
+      );
+
+    if (archivoNoPermitido) {
+      setMensajeAdjuntos(
+        `El archivo "${archivoNoPermitido.name}" tiene un formato no permitido.`,
+      );
+
+      return;
+    }
+
+    const archivoMuyGrande =
+      nuevosArchivos.find(
+        (archivo) =>
+          archivo.size >
+          tamanoMaximoAdjunto,
+      );
+
+    if (archivoMuyGrande) {
+      setMensajeAdjuntos(
+        `El archivo "${archivoMuyGrande.name}" supera el límite de 10 MB.`,
+      );
+
+      return;
+    }
+
+    const combinados = [
+      ...archivosPendientes,
+      ...nuevosArchivos,
+    ];
+
+    const unicos =
+      combinados.filter(
+        (archivo, indice, arreglo) =>
+          indice ===
+          arreglo.findIndex(
+            (comparado) =>
+              comparado.name ===
+                archivo.name &&
+              comparado.size ===
+                archivo.size &&
+              comparado.lastModified ===
+                archivo.lastModified,
+          ),
+      );
+
+    if (unicos.length > 5) {
+      setMensajeAdjuntos(
+        'Puede subir un máximo de 5 archivos a la vez.',
+      );
+
+      return;
+    }
+
+    setArchivosPendientes(
+      unicos,
+    );
+  }
+
+  function seleccionarAdjuntos(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    agregarArchivosPendientes(
+      Array.from(
+        event.target.files ?? [],
+      ),
+    );
+
+    event.target.value = '';
+  }
+
+  function soltarAdjuntos(
+    event: DragEvent<HTMLDivElement>,
+  ) {
+    event.preventDefault();
+
+    setArrastrandoAdjunto(false);
+
+    agregarArchivosPendientes(
+      Array.from(
+        event.dataTransfer.files ?? [],
+      ),
+    );
+  }
+
+  function pegarAdjuntos(
+    event: ClipboardEvent<HTMLDivElement>,
+  ) {
+    const archivosPegados =
+      Array.from(
+        event.clipboardData.items,
+      )
+        .filter(
+          (item) =>
+            item.kind === 'file',
+        )
+        .map(
+          (item) =>
+            item.getAsFile(),
+        )
+        .filter(
+          (
+            archivo,
+          ): archivo is File =>
+            archivo !== null,
+        )
+        .map((archivo) => {
+          if (
+            !archivo.type.startsWith(
+              'image/',
+            )
+          ) {
+            return archivo;
+          }
+
+          const extension =
+            archivo.type ===
+            'image/jpeg'
+              ? 'jpg'
+              : 'png';
+
+          return new File(
+            [archivo],
+            `captura-${Date.now()}.${extension}`,
+            {
+              type: archivo.type,
+              lastModified:
+                Date.now(),
+            },
+          );
+        });
+
+    if (
+      archivosPegados.length === 0
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    agregarArchivosPendientes(
+      archivosPegados,
+    );
+  }
+
+  function quitarAdjuntoPendiente(
+    indice: number,
+  ) {
+    setArchivosPendientes(
+      (actuales) =>
+        actuales.filter(
+          (_, indiceActual) =>
+            indiceActual !== indice,
+        ),
+    );
+
+    setMensajeAdjuntos('');
+    setMensajeAdjuntosExito('');
+  }
+
+  async function subirAdjuntos() {
+    if (
+      archivosPendientes.length === 0
+    ) {
+      setMensajeAdjuntos(
+        'Seleccione al menos un archivo antes de subirlo.',
+      );
+
+      return;
+    }
+
+    const token =
+      localStorage.getItem(
+        'access_token',
+      );
+
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    setSubiendoAdjuntos(true);
+    setMensajeAdjuntos('');
+    setMensajeAdjuntosExito('');
+
+    try {
+      const formData =
+        new FormData();
+
+      archivosPendientes.forEach(
+        (archivo) => {
+          formData.append(
+            'archivos',
+            archivo,
+          );
+        },
+      );
+
+      const respuesta =
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/adjuntos`,
+          {
+            method: 'POST',
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: formData,
+          },
+        );
+
+      if (respuesta.status === 401) {
+        localStorage.removeItem(
+          'access_token',
+        );
+
+        router.replace('/');
+        return;
+      }
+
+      if (respuesta.status === 403) {
+        setMensajeAdjuntos(
+          'No tiene permisos para agregar archivos a este ticket.',
+        );
+
+        return;
+      }
+
+      if (!respuesta.ok) {
+        const errorData =
+          await respuesta
+            .json()
+            .catch(() => null);
+
+        setMensajeAdjuntos(
+          errorData?.message
+            ? Array.isArray(
+                errorData.message,
+              )
+              ? errorData.message.join(
+                  ', ',
+                )
+              : errorData.message
+            : 'No fue posible subir los archivos adjuntos.',
+        );
+
+        return;
+      }
+
+      const cantidadSubida =
+        archivosPendientes.length;
+
+      setArchivosPendientes([]);
+
+      setMensajeAdjuntosExito(
+        cantidadSubida === 1
+          ? 'Archivo adjunto agregado correctamente.'
+          : `${cantidadSubida} archivos adjuntos agregados correctamente.`,
+      );
+
+      await cargarInformacion(
+        false,
+      );
+    } catch {
+      setMensajeAdjuntos(
+        'No fue posible conectar con el servidor para subir los archivos.',
+      );
+    } finally {
+      setSubiendoAdjuntos(false);
+    }
+  }
+
+  async function abrirAdjunto(
+    adjunto: Adjunto,
+  ) {
+    const token =
+      localStorage.getItem(
+        'access_token',
+      );
+
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    setAbriendoAdjunto(
+      adjunto.idAdjunto,
+    );
+
+    setMensaje('');
+
+    try {
+      const respuesta =
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/tickets/${idTicket}/adjuntos/${adjunto.idAdjunto}/archivo`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          },
+        );
+
+      if (respuesta.status === 401) {
+        localStorage.removeItem(
+          'access_token',
+        );
+
+        router.replace('/');
+        return;
+      }
+
+      if (respuesta.status === 403) {
+        setMensaje(
+          'No tiene permisos para abrir este archivo adjunto.',
+        );
+
+        return;
+      }
+
+      if (!respuesta.ok) {
+        const errorData =
+          await respuesta
+            .json()
+            .catch(() => null);
+
+        setMensaje(
+          errorData?.message ??
+            'No fue posible abrir el archivo adjunto.',
+        );
+
+        return;
+      }
+
+      const archivoBlob =
+        await respuesta.blob();
+
+      const urlArchivo =
+        URL.createObjectURL(
+          archivoBlob,
+        );
+
+      if (urlVistaAdjunto) {
+        URL.revokeObjectURL(
+          urlVistaAdjunto,
+        );
+      }
+
+      setAdjuntoVista(
+        adjunto,
+      );
+
+      setUrlVistaAdjunto(
+        urlArchivo,
+      );
+    } catch {
+      setMensaje(
+        'No fue posible conectar con el servidor para abrir el archivo.',
+      );
+    } finally {
+      setAbriendoAdjunto(null);
+    }
+  }
+
+  function cerrarVistaAdjunto() {
+    if (urlVistaAdjunto) {
+      URL.revokeObjectURL(
+        urlVistaAdjunto,
+      );
+    }
+
+    setUrlVistaAdjunto('');
+    setAdjuntoVista(null);
+  }
+
+  function descargarAdjunto() {
+    if (
+      !adjuntoVista ||
+      !urlVistaAdjunto
+    ) {
+      return;
+    }
+
+    const enlace =
+      document.createElement(
+        'a',
+      );
+
+    enlace.href =
+      urlVistaAdjunto;
+
+    enlace.download =
+      adjuntoVista.nombreOriginal;
+
+    document.body.appendChild(
+      enlace,
+    );
+
+    enlace.click();
+    enlace.remove();
+  }
+
+  function formatearTamano(
+    bytes: number,
+  ) {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+      return `${(
+        bytes / 1024
+      ).toFixed(1)} KB`;
+    }
+
+    return `${(
+      bytes /
+      1024 /
+      1024
+    ).toFixed(2)} MB`;
+  }
+
   function formatearFecha(
     fecha: string,
   ) {
@@ -1110,6 +1649,256 @@ export default function DetalleTicketPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* ARCHIVOS ADJUNTOS */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-[#1F4697]">
+                    Archivos adjuntos
+                  </h2>
+
+                  <p className="mt-1 text-sm text-[#61605E]">
+                    Evidencias y documentos relacionados con el incidente.
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-slate-50 px-4 py-2 text-center">
+                  <p className="text-xs text-slate-500">
+                    Adjuntos
+                  </p>
+
+                  <p className="text-lg font-bold text-[#1F4697]">
+                    {adjuntos.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* AGREGAR NUEVOS ARCHIVOS */}
+              <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="font-semibold text-slate-800">
+                  Agregar archivos
+                </p>
+
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Puede elegir archivos, arrastrarlos a esta área o pegar una
+                  captura de pantalla con Ctrl+V.
+                </p>
+
+                <div
+                  tabIndex={0}
+                  onPaste={pegarAdjuntos}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setArrastrandoAdjunto(
+                      true,
+                    );
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setArrastrandoAdjunto(
+                      true,
+                    );
+                  }}
+                  onDragLeave={() =>
+                    setArrastrandoAdjunto(
+                      false,
+                    )
+                  }
+                  onDrop={soltarAdjuntos}
+                  className={`mt-4 rounded-xl border-2 border-dashed p-6 text-center outline-none transition ${
+                    arrastrandoAdjunto
+                      ? 'border-[#1F4697] bg-blue-50'
+                      : 'border-slate-300 bg-white focus:border-[#1F4697] focus:ring-2 focus:ring-blue-100'
+                  }`}
+                >
+                  <p className="font-semibold text-slate-700">
+                    Arrastre archivos aquí
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    o haga clic en esta área y use Ctrl+V para pegar una imagen
+                  </p>
+
+                  <label className="mt-4 inline-flex cursor-pointer rounded-lg border border-[#1F4697] bg-white px-4 py-2.5 text-sm font-semibold text-[#1F4697] transition hover:bg-blue-50">
+                    Elegir archivos
+
+                    <input
+                      type="file"
+                      multiple
+                      accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={
+                        seleccionarAdjuntos
+                      }
+                      className="hidden"
+                    />
+                  </label>
+
+                  <p className="mt-3 text-xs leading-5 text-slate-400">
+                    Máximo 5 archivos por carga y 10 MB por archivo. Formatos:
+                    JPG, PNG, PDF, DOC, DOCX, XLS y XLSX.
+                  </p>
+                </div>
+
+                {archivosPendientes.length >
+                  0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm font-semibold text-slate-700">
+                      Archivos listos para subir
+                    </p>
+
+                    {archivosPendientes.map(
+                      (
+                        archivo,
+                        indice,
+                      ) => (
+                        <div
+                          key={`${archivo.name}-${archivo.size}-${archivo.lastModified}`}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-800">
+                              {
+                                archivo.name
+                              }
+                            </p>
+
+                            <p className="mt-1 text-xs text-slate-400">
+                              {formatearTamano(
+                                archivo.size,
+                              )}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              quitarAdjuntoPendiente(
+                                indice,
+                              )
+                            }
+                            disabled={
+                              subiendoAdjuntos
+                            }
+                            className="text-sm font-semibold text-red-600 transition hover:text-red-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ),
+                    )}
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        onClick={
+                          subirAdjuntos
+                        }
+                        disabled={
+                          subiendoAdjuntos
+                        }
+                        className="rounded-lg bg-[#EC2328] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        {subiendoAdjuntos
+                          ? 'Subiendo...'
+                          : archivosPendientes.length ===
+                              1
+                            ? 'Subir archivo'
+                            : `Subir ${archivosPendientes.length} archivos`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {mensajeAdjuntosExito && (
+                  <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                    {
+                      mensajeAdjuntosExito
+                    }
+                  </div>
+                )}
+
+                {mensajeAdjuntos && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {mensajeAdjuntos}
+                  </div>
+                )}
+              </div>
+
+              {/* LISTADO DE ARCHIVOS */}
+              {adjuntos.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-300 px-5 py-8 text-center">
+                  <p className="font-semibold text-slate-700">
+                    No hay archivos adjuntos.
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Los archivos enviados con el ticket aparecerán en esta sección.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {adjuntos.map(
+                    (adjunto) => (
+                      <div
+                        key={adjunto.idAdjunto}
+                        className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900">
+                            {adjunto.nombreOriginal}
+                          </p>
+
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                            <span>
+                              {formatearTamano(
+                                adjunto.tamano,
+                              )}
+                            </span>
+
+                            <span>
+                              {formatearFecha(
+                                adjunto.fechaCreacion,
+                              )}
+                            </span>
+
+                            {adjunto.usuario
+                              ?.usuario && (
+                              <span>
+                                Adjuntado por:{' '}
+                                {
+                                  adjunto.usuario
+                                    .usuario
+                                }
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            abrirAdjunto(
+                              adjunto,
+                            )
+                          }
+                          disabled={
+                            abriendoAdjunto ===
+                            adjunto.idAdjunto
+                          }
+                          className="shrink-0 rounded-lg bg-[#1F4697] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {abriendoAdjunto ===
+                          adjunto.idAdjunto
+                            ? 'Abriendo...'
+                            : 'Ver archivo'}
+                        </button>
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
             </div>
 
             {/* SOLUCIÓN */}
@@ -1790,6 +2579,98 @@ export default function DetalleTicketPage() {
           </div>
         </div>
       </section>
+
+      {adjuntoVista &&
+        urlVistaAdjunto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+          <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div className="min-w-0">
+                <p className="truncate font-bold text-slate-900">
+                  {adjuntoVista.nombreOriginal}
+                </p>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  {formatearTamano(
+                    adjuntoVista.tamano,
+                  )}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={
+                    descargarAdjunto
+                  }
+                  className="rounded-lg bg-[#1F4697] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-900"
+                >
+                  Descargar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    cerrarVistaAdjunto
+                  }
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto bg-slate-100 p-4">
+              {adjuntoVista.tipoMime.startsWith(
+                'image/',
+              ) ? (
+                <div className="flex min-h-[60vh] items-center justify-center">
+                  <img
+                    src={
+                      urlVistaAdjunto
+                    }
+                    alt={
+                      adjuntoVista.nombreOriginal
+                    }
+                    className="max-h-[75vh] max-w-full rounded-lg object-contain shadow"
+                  />
+                </div>
+              ) : adjuntoVista.tipoMime ===
+                'application/pdf' ? (
+                <iframe
+                  src={
+                    urlVistaAdjunto
+                  }
+                  title={
+                    adjuntoVista.nombreOriginal
+                  }
+                  className="h-[75vh] w-full rounded-lg bg-white"
+                />
+              ) : (
+                <div className="flex min-h-[50vh] flex-col items-center justify-center rounded-xl bg-white p-8 text-center">
+                  <p className="font-semibold text-slate-800">
+                    Vista previa no disponible para este tipo de archivo.
+                  </p>
+
+                  <p className="mt-2 text-sm text-slate-500">
+                    Puede descargar el archivo para abrirlo con la aplicación correspondiente.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={
+                      descargarAdjunto
+                    }
+                    className="mt-5 rounded-lg bg-[#1F4697] px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-900"
+                  >
+                    Descargar archivo
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

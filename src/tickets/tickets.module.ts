@@ -2,8 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Ticket } from './entities/ticket.entity';
+import { AdjuntoTicket } from './entities/adjunto-ticket.entity';
+
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
+import { AdjuntosTicketService } from './adjuntos-ticket.service';
 
 import { Prioridad } from '../prioridades/entities/prioridad.entity';
 import { Categoria } from '../categorias/entities/categoria.entity';
@@ -17,6 +20,7 @@ import { NotificacionesModule } from '../notificaciones/notificaciones.module';
   imports: [
     TypeOrmModule.forFeature([
       Ticket,
+      AdjuntoTicket,
       Prioridad,
       Categoria,
       User,
@@ -35,10 +39,12 @@ import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 
   providers: [
     TicketsService,
+    AdjuntosTicketService,
   ],
 
   exports: [
     TicketsService,
+    AdjuntosTicketService,
   ],
 })
 export class TicketsModule {}
